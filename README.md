@@ -2,26 +2,54 @@
 
 End-to-end feature workflow for [Claude Code](https://docs.anthropic.com/claude/claude-code) — `/ship <idea>` takes a feature from raw idea to a ready-to-review PR via a 5-agent team.
 
-## What it does
+## How it works
 
+```mermaid
+flowchart LR
+    Idea([💡 idea]):::input
+
+    subgraph PRD["📝 PRD stage — human in the loop"]
+        direction TB
+        Grill[grill-me<br/>interview]
+        Ctx[context.md<br/>resolved decisions]
+        P2P[prd-to-plan]
+        Plan[plan.md<br/>multi-phase]
+        Gate{👤 Gate 1<br/>approve?}
+        Grill --> Ctx --> P2P --> Plan --> Gate
+    end
+
+    subgraph Team["🤖 Team stage — autonomous, phase-by-phase"]
+        direction TB
+        Imp[ship-implementer<br/>opus<br/>codes 1 phase, commits]
+        Trio[parallel review:<br/>verifier · reviewer · visual-qa*]
+        Verdict{all green?}
+        Imp --> Trio --> Verdict
+        Verdict -->|yes, more phases| Imp
+        Verdict -.critical.-> Stop[STOP — fix or abort?]
+        Stop -.fix.-> Imp
+    end
+
+    subgraph Wrap["🚢 Wrap"]
+        direction TB
+        Retro[ship-retro<br/>haiku<br/>writes lessons → Obsidian]
+        PR[git push +<br/>gh pr create]
+    end
+
+    Idea --> Grill
+    Gate -.revise.-> P2P
+    Gate -->|approved| Imp
+    Verdict -->|all phases done| Retro
+    Retro --> PR
+    PR --> Out([✅ PR ready for review])
+
+    classDef input fill:#fff5e6,stroke:#e87600,stroke-width:2px
+    classDef gate fill:#fdf6e3,stroke:#b58900,stroke-width:2px
+    class Gate gate
 ```
-/ship <idea>
-  → grill-me interview (resolve decision tree)
-  → write context.md (resolved decisions)
-  → prd-to-plan (multi-phase tracer-bullet plan)
-  → ── HUMAN GATE: approve plan ──
-  → for each phase:
-      ship-implementer (opus) commits "phase N: <title>"
-      parallel:
-        ship-verifier (haiku) — runs tests
-        ship-reviewer (sonnet) — diff vs plan + bug/security review
-        ship-visual-qa (sonnet) — fires only on UI signals (figma URL,
-                                   design keywords, .tsx/.css changes)
-      green → next phase silently
-      critical finding → stop + ask (max 2 fix loops)
-  → ship-retro (haiku) writes lessons to Obsidian with provenance tags
-  → push + open PR (auto-titled, structured body)
-```
+
+`*` visual-qa fires only when commits touch UI files or plan mentions `figma.com` / mobile / breakpoints / design system.
+
+**One human gate** (plan approval). After that the team runs autonomously, phase by phase, with a critical-finding interrupt. Lessons accumulate in Obsidian per role with provenance tags so stale ones are easy to prune.
 
 ## Install
 

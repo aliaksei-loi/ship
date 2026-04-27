@@ -1,6 +1,69 @@
 # ship — Architecture
 
-Three views: high-level flow, phase loop, agent topology.
+Four views, increasing in detail:
+
+1. **Block scheme** — at-a-glance overview (this page, below)
+2. **High-level flow** — full pipeline with sweep + worktree + retry
+3. **Phase loop** — what happens inside one phase
+4. **Agent topology + memory** — who reads / writes what, where
+
+---
+
+## Block scheme — at a glance
+
+```mermaid
+flowchart LR
+    Idea([💡 idea]):::input
+
+    subgraph Stage1["1️⃣ PRD STAGE  ·  human in the loop"]
+        direction TB
+        S1A[grill-me<br/>interview]
+        S1B[context.md]
+        S1C[prd-to-plan]
+        S1D[plan.md<br/>multi-phase]
+        S1E{👤 Gate 1<br/>approve?}:::gate
+        S1A --> S1B --> S1C --> S1D --> S1E
+    end
+
+    subgraph Stage2["2️⃣ TEAM STAGE  ·  autonomous, per phase"]
+        direction TB
+        S2A[ship-implementer<br/>opus  ·  codes 1 phase  ·  commits]
+        S2B[parallel:<br/>verifier · reviewer · visual-qa*]
+        S2C{verdict?}
+        S2A --> S2B --> S2C
+        S2C -->|all green| S2D([next phase])
+        S2D --> S2A
+        S2C -.critical.-> S2E[STOP<br/>fix · abort · continue?]:::stop
+        S2E -.fix.-> S2A
+    end
+
+    subgraph Stage3["3️⃣ WRAP  ·  finalize + share"]
+        direction TB
+        S3A[ship-retro<br/>haiku  ·  writes 1 lesson per role<br/>to Obsidian with provenance tags]
+        S3B[git push +<br/>gh pr create<br/>structured body]
+        S3A --> S3B
+    end
+
+    Idea --> S1A
+    S1E -.revise.-> S1C
+    S1E -->|approved| S2A
+    S2C -->|all phases done| S3A
+    S3B --> Out([🚢 PR ready for human review])
+
+    classDef input fill:#fff5e6,stroke:#e87600,stroke-width:2px
+    classDef gate fill:#fdf6e3,stroke:#b58900,stroke-width:2px
+    classDef stop fill:#f8e3e3,stroke:#dc322f,stroke-width:2px
+```
+
+`*` visual-qa is **conditional** — fires only when the phase's commit touches UI files (`*.tsx/jsx/css/scss/module.*/vue/svelte`) OR the plan/context mentions `figma.com` / mobile / breakpoints / responsive / design system / mockup. Backend-only phases skip it.
+
+**Key properties:**
+
+- **One human gate** (Stage 1 → Stage 2 boundary). Everything else auto-flows on green.
+- **Phase-by-phase, not big-bang.** Each phase is a tracer-bullet vertical slice that's individually verifiable.
+- **Critical-finding interrupt.** If verifier / reviewer / visual-qa flags critical, the loop stops and asks. Minor findings auto-continue; surfaced in the final PR body.
+- **Bidirectional memory.** Each subagent reads its `<role>-lessons.md` at startup; retro auto-writes max 1 lesson per role per run with `<!-- ship/<slug> YYYY-MM-DD -->` provenance tags so stale ones are trivial to prune.
+- **End state is a PR, not a merge.** Push and open are automated; merge stays human-only.
 
 ---
 
