@@ -1,4 +1,4 @@
-# claude-ship
+# ship
 
 End-to-end feature workflow for [Claude Code](https://docs.anthropic.com/claude/claude-code) — `/ship <idea>` takes a feature from raw idea to a ready-to-review PR via a 5-agent team.
 
@@ -33,8 +33,8 @@ Requires:
 - (Optional) Obsidian vault for retro lessons
 
 ```bash
-git clone https://github.com/<YOUR-USER>/claude-ship.git ~/Documents/hobby/claude-ship
-cd ~/Documents/hobby/claude-ship
+git clone https://github.com/<YOUR-USER>/ship.git ~/Documents/hobby/ship
+cd ~/Documents/hobby/ship
 ./install.sh
 ```
 
@@ -57,7 +57,7 @@ The skill takes you through grill-me, writes a plan, asks for approval, runs the
 ## Structure
 
 ```
-claude-ship/
+ship/
 ├── skills/ship/SKILL.md        # the orchestrator skill — 200+ lines
 ├── agents/                     # 5 specialist subagents
 │   ├── ship-implementer.md     # opus — codes one phase per spawn

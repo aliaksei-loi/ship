@@ -1,11 +1,11 @@
 #!/bin/bash
-# claude-ship installer — symlinks repo skill + agents into ~/.agents and ~/.claude.
+# ship installer — symlinks repo skill + agents into ~/.agents and ~/.claude.
 # Idempotent. Safe to re-run.
 
 set -e
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
-echo "Installing claude-ship from: $REPO"
+echo "Installing ship from: $REPO"
 
 # Ensure target dirs exist
 mkdir -p "$HOME/.agents/skills"

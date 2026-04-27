@@ -1,4 +1,4 @@
-# claude-ship — Architecture
+# ship — Architecture
 
 Three views: high-level flow, phase loop, agent topology.
 
