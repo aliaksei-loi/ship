@@ -1,6 +1,6 @@
 ---
 name: ship
-description: End-to-end feature workflow — grills the user on the idea, generates a multi-phase plan, then runs a dedicated agent team (implementer, verifier, reviewer, visual-qa, retro) phase-by-phase on a git worktree. Invoke when the user runs `/ship <idea>` or says "ship this", "let's ship", "from idea to branch". Replaces /ticket and /orchestrate for net-new feature work.
+description: End-to-end feature workflow — grills the user on the idea, generates a multi-phase plan, then runs a dedicated agent team (implementer, verifier, reviewer, visual-qa, retro) phase-by-phase on a dedicated branch (worktree by default, or `--here` in the current checkout). Invoke when the user runs `/ship <idea>` or says "ship this", "let's ship", "from idea to branch". Replaces /ticket and /orchestrate for net-new feature work.
 metadata:
   version: "1.0.0"
 ---
@@ -15,9 +15,11 @@ The flow is fixed. Do not improvise. Surface decisions to the human only at the 
 2. `gh` CLI must be available. If not: warn but continue (PR step is manual anyway).
 3. Default branch resolved: `base-ref=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')` → fallback to `main`.
 
-## Step 0 — sweep stale ship/* worktrees
+## Step 0 — sweep stale ship/* worktrees and orphan state dirs
 
-Before creating a new worktree, tidy:
+Before starting a new run, tidy. Sweep runs in both modes regardless of how the user invoked ship — both kinds of stale state can accumulate.
+
+**Worktrees:**
 
 ```bash
 git worktree list --porcelain
@@ -28,11 +30,20 @@ For each worktree under `.worktrees/<slug>/` whose branch is `ship/<slug>`:
 - If `git for-each-ref --format='%(upstream:track)' refs/heads/ship/<slug>` returns `[gone]` → branch was merged + deleted upstream. Run `git worktree remove "<path>"` then `git branch -D "ship/<slug>"`.
 - If `git merge-base --is-ancestor ship/<slug> origin/<base-ref>` succeeds → branch fully merged to base. Same removal.
 
-Show what got swept (one line per removed worktree). Silently skip if nothing to clean.
+**Orphan state dirs (`--here` leftovers):**
 
-## Step 1 — slug + worktree setup
+After the worktree sweep, list `<repo-root>/.ship/*/`. For each `<slug>`:
+- Skip if `.worktrees/<slug>/` still exists (the worktree branch above already handled it).
+- If branch `ship/<slug>` is absent locally → orphan, `rm -rf` the state dir.
+- If `git for-each-ref --format='%(upstream:track)' refs/heads/ship/<slug>` is `[gone]` → `rm -rf` the state dir AND `git branch -D "ship/<slug>"`.
+- If `git merge-base --is-ancestor ship/<slug> origin/<base-ref>` succeeds → same removal.
+- Otherwise → leave alone (in-progress on this or another machine).
 
-**Slug:** auto-derive from `<idea>` — kebab-case **at most 4 meaningful words** (drop articles: a, the, of, to, and, for, in, on; drop generic verbs at the start: implement, add, create, build, make — they don't add information). Example:
+Show what got swept (one line per removed item, prefixed `worktree:` or `state:`). Silently skip if nothing to clean.
+
+## Step 1 — slug, mode, branch setup
+
+**Slug** (mode-independent): auto-derive from `<idea>` — kebab-case **at most 4 meaningful words** (drop articles: a, the, of, to, and, for, in, on; drop generic verbs at the start: implement, add, create, build, make — they don't add information). Example:
 
 - `implement light/system/dark modes` → `light-system-dark-modes` (drop "implement", split slashes)
 - `add user dashboard analytics widget` → `user-dashboard-analytics-widget` (drop "add")
@@ -40,16 +51,41 @@ Show what got swept (one line per removed worktree). Silently skip if nothing to
 
 Cap at 4 words for clean branch names + PR titles. Don't ask, just proceed.
 
-**Worktree:**
-1. `repo-root=$(git rev-parse --show-toplevel)`
-2. `worktree-path=$repo-root/.worktrees/<slug>`
-3. **Ensure `.worktrees/` and `.ship/` are gitignored** on the main checkout. If either is missing from `.gitignore`, append + commit immediately on main with message `chore: gitignore .worktrees/ + .ship/`. Do this BEFORE creating the worktree so the new branch inherits the up-to-date gitignore.
-4. **Branch off LOCAL `<base-ref>`, not `origin/<base-ref>`.** Reason: local main may have commits (like the gitignore from step 3) that haven't been pushed; branching off `origin/<base-ref>` would miss them and leak metadata into phase commits. If local is behind origin, that's a separate concern handled in step 4a.
-5. `git worktree add "$worktree-path" -b "ship/<slug>" "<base-ref>"`
-6. `cd "$worktree-path"`
+**Mode selection:**
+
+- `/ship <idea>` → **worktree mode** (default). Operates in a sibling directory `<repo-root>/.worktrees/<slug>/`.
+- `/ship --here <idea>` → **`--here` mode**. Operates in the main checkout. Use when you want ship to run on the same checkout you have open in your editor.
+
+If a resume is detected (Step 2), the on-disk state dictates the mode and any `--here` (or its absence) on this invocation is ignored.
+
+`repo-root=$(git rev-parse --show-toplevel)` is set in both modes.
+
+**Gitignore (both modes):** ensure `.worktrees/` and `.ship/` are gitignored on the main checkout. If either is missing from `.gitignore`, append + commit immediately on main with message `chore: gitignore .worktrees/ + .ship/`. Do this BEFORE the next step so phase commits don't leak metadata.
+
+### Worktree mode (default)
+
+1. `worktree-path=$repo-root/.worktrees/<slug>`
+2. **Branch off LOCAL `<base-ref>`, not `origin/<base-ref>`.** Reason: local main may have commits (like the gitignore above) that haven't been pushed; branching off `origin/<base-ref>` would miss them and leak metadata into phase commits.
+3. Run Step 1a (local-vs-origin sanity check).
+4. `git worktree add "$worktree-path" -b "ship/<slug>" "<base-ref>"`
+5. `cd "$worktree-path"`
+
+**State dir:** `<worktree-path>/.ship/<slug>/`.
+
+### `--here` mode
+
+1. **Collision check:** if a live worktree already holds `ship/<slug>` (from `git worktree list --porcelain`), refuse — *"Worktree at `<path>` already holds branch `ship/<slug>`. Resume there, or `git worktree remove "<path>"` and re-run."* (Step 0 has already swept stale worktrees, so this only fires on truly live ones.)
+2. **Dirty-tree check:** `git status --porcelain` must be empty. If not, refuse — *"Working tree not clean. Commit, stash, or discard before /ship --here."*
+3. **Branch decision (create-or-resume):**
+   - `ship/<slug>` does not exist → run Step 1a, then `git checkout -b "ship/<slug>" "<base-ref>"`.
+   - `ship/<slug>` exists, current `HEAD` is `ship/<slug>` → continue.
+   - `ship/<slug>` exists, `HEAD` is something else → `git checkout "ship/<slug>"` (clean tree was verified in step 2 above). Print *"Auto-checked-out ship/<slug> from <prior-branch>."*
+4. CWD stays at `<repo-root>` (do not `cd`).
+
+**State dir:** `<repo-root>/.ship/<slug>/`.
 
 ### Step 1a — local-vs-origin sanity check
-Before creating the worktree, check whether local `<base-ref>` is behind `origin/<base-ref>`:
+Run before creating a fresh `ship/<slug>` branch (worktree mode always; `--here` mode only when the branch doesn't yet exist). Check whether local `<base-ref>` is behind `origin/<base-ref>`:
 
 ```bash
 git fetch origin "<base-ref>" --quiet
@@ -58,16 +94,22 @@ ahead=$(git rev-list --count "origin/<base-ref>..<base-ref>")
 ```
 
 - `behind > 0`: warn the human — *"Local `<base-ref>` is behind `origin/<base-ref>` by N commit(s). Continue from local (potentially stale), or pull first?"* Default offer: pull. Wait for human reply.
-- `ahead > 0`: that's the case where local has unpushed commits (gitignore from step 3, or earlier work). Proceed silently — the new worktree will include them, which is what we want.
+- `ahead > 0`: local has unpushed commits (gitignore commit, or earlier work). Proceed silently — the new branch will include them, which is what we want.
 - both zero: clean, proceed.
-
-**State dir:** `<worktree-path>/.ship/<slug>/`.
 
 ## Step 2 — resume detection
 
-If `<worktree-path>/.ship/<slug>/` already exists:
+Run before any branch/worktree creation in Step 1.
 
-| Files present | Next phase |
+**Mode detection (resume case):**
+- `<repo-root>/.worktrees/<slug>/.ship/<slug>/` exists → worktree-mode resume. Any `--here` flag on this invocation is ignored.
+- `<repo-root>/.ship/<slug>/` exists AND no `.worktrees/<slug>/` → `--here`-mode resume.
+- Both exist → corrupt state, refuse — *"Both worktree and `--here` state exist for ship/<slug>. Inspect and remove one before resuming."*
+- Neither exists → fresh start in the mode the human chose via flag (or default = worktree).
+
+**Resume table** (state dir = whichever path the mode detection above selected):
+
+| Files present in state dir | Next phase |
 | --- | --- |
 | nothing | fresh start |
 | `context.md` only | re-run prd-to-plan |
@@ -77,13 +119,15 @@ If `<worktree-path>/.ship/<slug>/` already exists:
 | all phase markers present, no `retro.done` | retro |
 | `retro.done` | already shipped — print handoff and stop |
 
-Show: *"Resuming ship/<slug> — last phase: <N>. Continue? [y/N]"*. On no, ask whether to wipe `.ship/<slug>/` and restart.
+Show: *"Resuming ship/<slug> (<mode>) — last phase: <N>. Continue? [y/N]"*. On no, ask whether to wipe the state dir (and worktree, if applicable) and restart.
+
+**`--here` resume extras:** clean-tree check still applies — refuse if `git status --porcelain` is non-empty. If `HEAD` is not `ship/<slug>`, auto-checkout (clean tree was just verified) and print *"Auto-checked-out ship/<slug> from <prior-branch>."*
 
 ## Step 3 — grill phase
 
 Invoke the `grill-me` skill with the idea as input. Let grill-me run to completion (it ends naturally when the human is satisfied).
 
-After grill-me concludes, **summarize the resolved decisions** into `<worktree-path>/.ship/<slug>/context.md`:
+After grill-me concludes, **summarize the resolved decisions** into `<state-dir>/context.md` (the **State dir** path defined in Step 1 — `<worktree-path>/.ship/<slug>/` in worktree mode, `<repo-root>/.ship/<slug>/` in `--here` mode):
 
 ```markdown
 # Ship context: <slug>
@@ -138,11 +182,13 @@ On revision: edit `plan.md`, repost, wait again.
 For each phase in `plan.md`, in order:
 
 ### 6a — implementer
+**Precondition (`--here` mode only):** verify `git symbolic-ref --short HEAD` returns `ship/<slug>`. If not — abort the run; the human checked out away mid-flight. Don't auto-fix here (different from Step 2 resume): mid-run drift means something else is wrong.
+
 Spawn one teammate using `ship-implementer`. Spawn prompt includes:
-- `cwd` = worktree path
+- `cwd` = worktree path (worktree mode) or `<repo-root>` (`--here` mode)
 - Branch = `ship/<slug>`
-- Path to `.ship/<slug>/plan.md`
-- Path to `.ship/<slug>/context.md`
+- Path to `.ship/<slug>/plan.md` (relative to `cwd`)
+- Path to `.ship/<slug>/context.md` (relative to `cwd`)
 - **The phase number and title to implement** (e.g. *"Implement phase 2: 'Wire dashboard data fetcher'"*)
 - Hard rule: implement only this phase, commit with message `phase <n>: <title>`, then return.
 - On ambiguity: stop and message lead.
@@ -278,12 +324,14 @@ Capture the returned URL.
 
 ## Step 9 — handoff summary
 
-Post:
+Post (mode-aware lines marked; render only the line for the active mode):
 
 ```
 🚢 SHIP DONE — <slug>
 
-Worktree: <worktree-path>
+Mode:     <worktree | in-place (--here)>
+Worktree: <worktree-path>             ← worktree mode only
+You are on: ship/<slug>               ← --here mode only
 Branch:   ship/<slug>
 Base:     <base-ref>
 PR:       <url>
@@ -300,15 +348,17 @@ Open design questions (if any):
 
 Next:
   Review the PR: <url>
-  After merge, the next /ship run sweeps this worktree.
+  After merge, the next /ship run sweeps:
+    - this worktree                   ← worktree mode
+    - the .ship/<slug>/ state dir     ← --here mode
   You can also run /clean_gone manually to remove it now.
 ```
 
-Do NOT merge the PR yourself. Do NOT remove the worktree (sweep happens at next /ship invocation, or via /clean_gone).
+Do NOT merge the PR yourself. Do NOT remove the worktree or state dir (sweep happens at next /ship invocation, or via /clean_gone).
 
 ## Hard rules
 
-- Always use a worktree. Never work on the main checkout.
+- Default to a worktree. `--here` runs in the main checkout but refuses on a dirty tree, and refuses if a live worktree already holds `ship/<slug>` for the same slug.
 - One Gate only (Step 5, plan approval). Never auto-approve the plan.
 - Never invent phases — execute what `plan.md` says.
 - Never silently skip a phase. Failure → stop and ask.

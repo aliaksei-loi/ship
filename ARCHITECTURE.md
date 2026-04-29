@@ -3,7 +3,7 @@
 Four views, increasing in detail:
 
 1. **Block scheme** — at-a-glance overview (this page, below)
-2. **High-level flow** — full pipeline with sweep + worktree + retry
+2. **High-level flow** — full pipeline with sweep + worktree (or `--here`) + retry
 3. **Phase loop** — what happens inside one phase
 4. **Agent topology + memory** — who reads / writes what, where
 
@@ -71,10 +71,13 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Idea([/ship idea/]) --> Sweep[sweep stale ship/* worktrees]
+    Idea([/ship idea/]) --> Sweep[sweep stale ship/* worktrees<br/>+ orphan .ship/ state dirs]
     Sweep --> Slug[derive slug<br/>≤4 words, drop generic verbs]
-    Slug --> Wt[create worktree<br/>off LOCAL base-ref]
+    Slug --> Mode{--here flag?}
+    Mode -->|no, default| Wt[create worktree<br/>off LOCAL base-ref]
+    Mode -->|yes| Here[checkout ship/slug<br/>in main checkout<br/>refuse if dirty / collision]
     Wt --> Grill[invoke grill-me skill]
+    Here --> Grill
     Grill --> Ctx[write .ship/slug/context.md]
     Ctx --> Plan[invoke prd-to-plan<br/>treats context as PRD]
     Plan --> PlanFile[.ship/slug/plan.md<br/>multi-phase tracer-bullet]
@@ -179,7 +182,7 @@ Lessons memory is bidirectional: each agent reads its own file at startup; retro
 
 ## State files (per run)
 
-`<worktree>/.ship/<slug>/` (gitignored):
+State dir is `<worktree>/.ship/<slug>/` in worktree mode, `<repo-root>/.ship/<slug>/` in `--here` mode. Always gitignored.
 
 | File | Written by | Meaning |
 |---|---|---|
@@ -211,7 +214,7 @@ This avoids spawning a sonnet subagent on phases that touch only backend code.
 
 ## Hard rules (never violate)
 
-- Always use a worktree. Never work on the main checkout.
+- Default to a worktree. `--here` runs in the main checkout but refuses on a dirty tree, and refuses if a live worktree already holds `ship/<slug>` for the same slug.
 - One Gate only (plan approval). Never auto-approve.
 - Never invent phases — execute what `plan.md` says.
 - Never silently skip a phase. Failure → stop and ask.
@@ -242,4 +245,4 @@ This avoids spawning a sonnet subagent on phases that touch only backend code.
 - **Bug fixes** — /ship is overkill for one-line fixes. Use direct edit + commit.
 - **Multi-package monorepos** — untested at v1. Should work but coordination across packages may need extra prompts.
 - **Cross-machine resume** — `.ship/` is local-only. Resume works on the same machine; a different laptop needs to start fresh.
-- **Concurrent /ship runs** — different slugs can coexist (different worktrees). Same slug → resume kicks in.
+- **Concurrent /ship runs** — different slugs can coexist in worktree mode (each in its own worktree). `--here` mode is single-occupancy by definition (one main checkout, one HEAD). Same slug across modes → Step 2 detects mode from on-disk state and resumes; cross-mode collision (worktree + `--here` for same slug) is refused.

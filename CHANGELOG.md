@@ -6,6 +6,15 @@ The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), 
 
 ## [Unreleased]
 
+### Added
+- `--here` flag: `/ship --here <idea>` runs in the main checkout instead of a worktree. Refuses on dirty tree or live-worktree collision for the same slug. Useful when you want ship to operate on the same checkout already open in your editor.
+- Step 0 sweep extended to clean orphan `<repo-root>/.ship/<slug>/` state dirs left behind by `--here` runs whose branch is `[gone]` or merged to base.
+- Step 2 mode detection: resumes infer worktree vs `--here` from on-disk state and ignore the flag on this invocation. Cross-mode collisions (state for both modes for the same slug) are refused.
+
+### Changed
+- Hard rule "Always use a worktree" → "Default to a worktree; `--here` is available with safety guards (dirty-tree refusal, live-worktree collision refusal, HEAD-vs-`ship/<slug>` precondition before each phase commit)."
+- Step 9 handoff text is mode-aware (worktree path vs "you are on" line; "next /ship sweeps this worktree" vs "...the .ship/<slug>/ state dir").
+
 ## [1.0.0] — 2026-04-27
 
 Initial release. Workflow validated end-to-end on a Next.js + Payload CMS site (belcreation) — first run produced a merged PR adding a tri-state (light/system/dark) theme toggle.
