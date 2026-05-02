@@ -23,7 +23,17 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:451 (port `451` by default — override with `PORT=4451 pnpm dev` if 451 is taken or blocked).
+
+## Live telemetry from `/ship`
+
+When `/ship` runs, it can stream state transitions to this app so you can watch the workflow in real time. Start `pnpm dev` first, then run `/ship` — the lead agent will announce the URL and POST events as the run progresses.
+
+- **Endpoint:** `POST http://localhost:451/api/event` with body `{"type":"<EVENT>"}` (and optional `"mode":"<id>"` for criticals).
+- **Stream:** `GET http://localhost:451/api/stream` (Server-Sent Events). The page subscribes automatically; the green `LIVE` pill in the header confirms the connection.
+- **Events:** any event the state machine accepts — `USER_GO`, `IMPLEMENTER_DONE`, `VERIFIER_GREEN`, `VERIFIER_CRITICAL` (with `mode`), `PANEL_GATE_GREEN`, `PANEL_TRIO_CRITICAL`, `RETRO_DONE`, `PUSH_SUCCESS`, `USER_ABORT`, etc.
+
+Events are kept in-memory and broadcast to all connected tabs. When the dev server restarts, history resets — open the page fresh before running `/ship` to see the run from the start.
 
 ## Deploy to Vercel
 

@@ -15,6 +15,46 @@ State lives in your context, not on disk. There is no `.ship/` directory. If you
 2. `gh` CLI available. If not: warn but continue — the user will push + open the PR manually.
 3. Default branch resolved: `base-ref=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)` → fallback to `main`.
 
+## Telemetry — live progress visualisation (optional)
+
+If the user has the `ship-machine` app running locally on port `451`, you can stream the workflow's state transitions to it so they can watch the run in their browser. Always:
+
+1. **Announce once at the start of Step 1**, right after deriving the slug and confirming branch setup:
+
+   > *"You can watch progress live at <http://localhost:0451> — start it with `cd ~/Documents/hobby/ship/ship-machine && pnpm dev` if it isn't already running."*
+
+2. **After every meaningful transition**, fire-and-forget a curl to the local app. The app silently no-ops if it's not running, so this is always safe:
+
+   ```bash
+   curl -fsS -X POST http://localhost:451/api/event \
+     -H 'content-type: application/json' \
+     --max-time 1 \
+     -d '{"type":"<EVENT>"}' >/dev/null 2>&1 || true
+   ```
+
+   The trailing `|| true` ensures a missing server never breaks the run.
+
+   Events to send (mirror the ship-machine state machine — same identifiers as the visualiser uses):
+
+   | Lead action | Event(s) |
+   |---|---|
+   | User typed `/ship <prompt>` (entering branchSetup) | `USER_GO` |
+   | grill-me finished, plan emitted, awaiting user "go" | `IMPLEMENTER_DONE` |
+   | User confirmed plan → starting phase 1 | `USER_GO` |
+   | Implementer committed phase N | `IMPLEMENTER_DONE` |
+   | Verifier returned green / minor / critical | `VERIFIER_GREEN` / `VERIFIER_MINOR` / `VERIFIER_CRITICAL` (with `"mode":"<id>"`) |
+   | Same-defect detected | `VERIFIER_LIVELOCK` |
+   | Code-review gate verdict | `PANEL_GATE_GREEN` / `PANEL_GATE_MINOR` / `PANEL_GATE_CRITICAL` / `PANEL_GATE_LIVELOCK` |
+   | Trio (perf/security/design) verdict | `PANEL_TRIO_GREEN` / `PANEL_TRIO_CRITICAL` / `PANEL_TRIO_LIVELOCK` |
+   | Retro completed | `RETRO_DONE` |
+   | Push completed | `PUSH_SUCCESS` / `PUSH_FAIL` |
+   | Run aborted | `USER_ABORT` |
+   | User chose "continue despite critical" / "fix manually" at an escalation prompt | `USER_CONTINUE_DESPITE_CRITICAL` / `USER_FIX_MANUAL` |
+
+   For events that carry a failure-mode id (`VERIFIER_CRITICAL`, `PANEL_GATE_CRITICAL`, `PANEL_TRIO_CRITICAL`), include `mode`: `{"type":"VERIFIER_CRITICAL","mode":"auth.test:assertion-fail"}`. Other events: just `{"type":"..."}`.
+
+   Skip telemetry if curl is not available or the user opts out. Never block the workflow on it.
+
 ## Step 1 — input + branch setup
 
 **Input form:**
