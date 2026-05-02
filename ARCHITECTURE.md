@@ -1,11 +1,10 @@
-# ship — Architecture
+# ship — Architecture (v2)
 
-Four views, increasing in detail:
+Three views, increasing in detail:
 
-1. **Block scheme** — at-a-glance overview (this page, below)
-2. **High-level flow** — full pipeline with sweep + worktree (or `--here`) + retry
-3. **Phase loop** — what happens inside one phase
-4. **Agent topology + memory** — who reads / writes what, where
+1. **Block scheme** — at-a-glance overview
+2. **Phase loop** — what happens per phase
+3. **End-of-run panel** — gated multi-aspect review
 
 ---
 
@@ -13,87 +12,74 @@ Four views, increasing in detail:
 
 ```mermaid
 flowchart LR
-    Idea([💡 idea]):::input
+    Idea([💡 idea / ticket URL / freeform]):::input
 
-    subgraph Stage1["1️⃣ PRD STAGE  ·  human in the loop"]
+    subgraph Stage1["1️⃣ INPUT + GRILL  ·  human in the loop"]
         direction TB
-        S1A[grill-me<br/>interview]
-        S1B[context.md]
-        S1C[prd-to-plan]
-        S1D[plan.md<br/>multi-phase]
-        S1E{👤 Gate 1<br/>approve?}:::gate
-        S1A --> S1B --> S1C --> S1D --> S1E
+        S1A[input parser<br/>+ branch setup]
+        S1B[grill-me skill<br/>Socratic interview]
+        S1C[lead emits plan<br/>tracer-bullet, triplet/phase<br/>+ out-of-scope list]
+        S1D{👤 inline<br/>'go'?}:::gate
+        S1A --> S1B --> S1C --> S1D
     end
 
-    subgraph Stage2["2️⃣ TEAM STAGE  ·  autonomous, per phase"]
+    subgraph Stage2["2️⃣ PHASE LOOP  ·  per phase, fresh agents"]
         direction TB
-        S2A[ship-implementer<br/>opus  ·  codes 1 phase  ·  commits]
-        S2B[parallel:<br/>verifier · reviewer · visual-qa*]
+        S2A[ship-implementer<br/>opus  ·  fresh per phase<br/>commits with sprint contract in body]
+        S2B[ship-verifier<br/>haiku  ·  rubric + same-defect mode]
         S2C{verdict?}
         S2A --> S2B --> S2C
-        S2C -->|all green| S2D([next phase])
+        S2C -->|green/minor| S2D([next phase])
         S2D --> S2A
-        S2C -.critical.-> S2E[STOP<br/>fix · abort · continue?]:::stop
+        S2C -.critical.-> S2E[fix-loop forward-only<br/>max 2 + same-defect detector]:::stop
         S2E -.fix.-> S2A
     end
 
-    subgraph Stage3["3️⃣ WRAP  ·  finalize + share"]
+    subgraph Stage3["3️⃣ END-OF-RUN PANEL  ·  sequential gate"]
         direction TB
-        S3A[ship-retro<br/>haiku  ·  writes 1 lesson per role<br/>to Obsidian with provenance tags]
-        S3B[git push +<br/>gh pr create<br/>structured body]
+        S3A[ship-code-review<br/>sonnet  ·  GATE  ·  always]
+        S3B{green?}
         S3A --> S3B
+        S3B -->|yes| S3C[parallel:<br/>security  ·  performance  ·  design]
+        S3B -.critical.-> S3E[fix-loop<br/>max 2]:::stop
+        S3C --> S3D{aggregate?}
+        S3D -->|all green/minor| S3F([panel done])
+        S3D -.critical.-> S3E
+        S3E -.fix.-> S3A
+    end
+
+    subgraph Stage4["4️⃣ WRAP  ·  finalize + share"]
+        direction TB
+        S4A[ship-retro<br/>haiku  ·  vault writes only<br/>structured template + cap]
+        S4B[git push +<br/>gh pr create<br/>detected template + 3-layer evidence body]
+        S4A --> S4B
     end
 
     Idea --> S1A
-    S1E -.revise.-> S1C
-    S1E -->|approved| S2A
+    S1D -.revise.-> S1C
+    S1D -->|approved| S2A
     S2C -->|all phases done| S3A
-    S3B --> Out([🚢 PR ready for human review])
+    S3F --> S4A
+    S4B --> Out([🚢 PR ready for human review])
 
     classDef input fill:#fff5e6,stroke:#e87600,stroke-width:2px
     classDef gate fill:#fdf6e3,stroke:#b58900,stroke-width:2px
     classDef stop fill:#f8e3e3,stroke:#dc322f,stroke-width:2px
 ```
 
-`*` visual-qa is **conditional** — fires only when the phase's commit touches UI files (`*.tsx/jsx/css/scss/module.*/vue/svelte`) OR the plan/context mentions `figma.com` / mobile / breakpoints / responsive / design system / mockup. Backend-only phases skip it.
-
 **Key properties:**
 
-- **One human gate** (Stage 1 → Stage 2 boundary). Everything else auto-flows on green.
-- **Phase-by-phase, not big-bang.** Each phase is a tracer-bullet vertical slice that's individually verifiable.
-- **Critical-finding interrupt.** If verifier / reviewer / visual-qa flags critical, the loop stops and asks. Minor findings auto-continue; surfaced in the final PR body.
-- **Bidirectional memory.** Each subagent reads its `<role>-lessons.md` at startup; retro auto-writes max 1 lesson per role per run with `<!-- ship/<slug> YYYY-MM-DD -->` provenance tags so stale ones are trivial to prune.
-- **End state is a PR, not a merge.** Push and open are automated; merge stays human-only.
-
----
-
-## High-level flow
-
-```mermaid
-flowchart TD
-    Idea([/ship idea/]) --> Sweep[sweep stale ship/* worktrees<br/>+ orphan .ship/ state dirs]
-    Sweep --> Slug[derive slug<br/>≤4 words, drop generic verbs]
-    Slug --> Mode{--here flag?}
-    Mode -->|no, default| Wt[create worktree<br/>off LOCAL base-ref]
-    Mode -->|yes| Here[checkout ship/slug<br/>in main checkout<br/>refuse if dirty / collision]
-    Wt --> Grill[invoke grill-me skill]
-    Here --> Grill
-    Grill --> Ctx[write .ship/slug/context.md]
-    Ctx --> Plan[invoke prd-to-plan<br/>treats context as PRD]
-    Plan --> PlanFile[.ship/slug/plan.md<br/>multi-phase tracer-bullet]
-    PlanFile --> Gate{Gate 1<br/>human approves plan}
-    Gate -->|revisions| Plan
-    Gate -->|approved| Loop[phase-by-phase team loop]
-    Loop --> Retro[ship-retro<br/>writes lessons to Obsidian<br/>with provenance tags]
-    Retro --> Push[git push -u origin]
-    Push --> PR[gh pr create<br/>structured body]
-    PR --> Done([🚢 SHIP DONE<br/>handoff + PR URL])
-
-    classDef gate fill:#fdf6e3,stroke:#b58900,stroke-width:2px
-    class Gate gate
-```
-
-Single human gate. Everything else auto-continues on green; stops on critical findings.
+- **Inline approval** at end of grill-me. Plan shown in chat; user types `go`. No separate gate file, no `.ship/approved` marker.
+- **Fresh implementer per phase.** Context resets; prior phases reachable via `git log`/`git show` (sprint contract is embedded in commit body).
+- **Hybrid review.** Per-phase = tests only (mechanical). End-of-run = 1 + 3 reviewer panel.
+- **Sequential gate.** code-review fires first; security/performance/design parallel only if code-review is green.
+- **Two independent retry caps.** Per-phase verifier: max 2. End-of-run panel: max 2. Same-defect detector overrides both — identical failure mode = immediate escalation, no budget burn.
+- **Cross-component defects auto-critical.** State propagation, resource leaks, interface mismatches — all promoted regardless of agent's stated severity.
+- **Findings need evidence.** Every finding carries `evidence: {type, ref}` (test/log/trace/screenshot). Findings without it are dropped before the lead reads them.
+- **Bidirectional memory.** Each subagent reads its `<role>-lessons.md` from Obsidian vault at startup; retro auto-writes structured 4-field lessons (Trigger/Symptom/Correction/Expires-when) with file cap of 100 lines and provenance tags.
+- **No filesystem state.** No `.ship/` directory. Plan + decisions live in lead's context; sprint contract embedded in commit message bodies; screenshots ephemeral in `/tmp/ship-<runId>/`. Resume not supported — interrupted run = restart.
+- **Worktree management out of scope.** /ship runs in whatever directory the user invoked it from. If on `<base-ref>`, auto-creates a branch using detected repo conventions. Otherwise, trusts the current branch.
+- **End state is a PR.** Merge stays human-only.
 
 ---
 
@@ -101,39 +87,77 @@ Single human gate. Everything else auto-continues on green; stops on critical fi
 
 ```mermaid
 flowchart TD
-    Start([Phase N]) --> Imp[ship-implementer<br/>opus<br/>reads its lessons file]
+    Start([Phase N]) --> Imp[ship-implementer<br/>opus<br/>reads lessons + reconciles]
     Imp -->|ambiguity?| Esc[escalate to lead]
     Esc --> Imp
-    Imp --> Commit[git commit<br/>'phase n: title']
-    Commit --> Sig{UI signals?<br/>figma.com / design keywords /<br/>commit touches .tsx/css/etc}
-    Sig -->|yes| Trio[parallel:]
-    Sig -->|no| Duo[parallel:]
-
-    Trio --> Ver[ship-verifier<br/>haiku<br/>runs tests]
-    Trio --> Rev[ship-reviewer<br/>sonnet<br/>diff vs plan + bugs + guardrails]
-    Trio --> Vis[ship-visual-qa<br/>sonnet<br/>screenshots @ 375/390/428/1440]
-
-    Duo --> Ver
-    Duo --> Rev
-
-    Ver --> Verdict{verdict?}
-    Rev --> Verdict
-    Vis --> Verdict
-
-    Verdict -->|all green<br/>or only minor| Next([next phase])
-    Verdict -->|any critical| Stop[STOP: surface to human<br/>continue / fix / abort?]
-    Stop -->|fix| FixLoop[respawn implementer<br/>with critical findings JSON<br/>max 2 attempts]
+    Imp --> Commit[git commit<br/>subject: 'phase N: title'<br/>body: Behavior/Verification/State]
+    Commit --> Ver[ship-verifier<br/>haiku<br/>flaky retry built-in]
+    Ver --> Verdict{verdict +<br/>currentMode}
+    Verdict -->|green/minor| Next([next phase])
+    Verdict -->|critical, NEW mode| FixLoop[fix-loop counter++<br/>respawn implementer<br/>fix: phase N verifier — topic]
     FixLoop --> Commit
-    Stop -->|abort| AbortEnd([state on disk<br/>resumable])
-    Stop -->|continue| Next
+    Verdict -.critical, SAME mode<br/>as last attempt.-> SameDef[ESCALATE NOW<br/>livelock detected]:::stop
+    Verdict -->|3rd critical| Stop[STOP: surface to user<br/>continue / fix manually / abort?]:::stop
 
     classDef stop fill:#f8e3e3,stroke:#dc322f,stroke-width:2px
     classDef green fill:#e3f2dc,stroke:#859900,stroke-width:2px
-    class Stop stop
     class Next green
 ```
 
-The fix loop respawns `ship-implementer` with the consolidated critical findings (verifier failure JSON + reviewer + visual-qa criticals filtered to `severity == "critical"`). Max 2 retries per phase, then escalate. See SKILL.md Step 6d for the spawn-prompt template.
+**Sprint contract** (the triplet — Behavior / Verification command / State) is the contract between lead and implementer. It travels in:
+1. The implementer's spawn prompt.
+2. The commit message body, recoverable forever via `git show <sha>`.
+
+The verifier receives only the `Verification` command. No file paths. Independent of state-on-disk.
+
+---
+
+## End-of-run panel (sequential gate)
+
+```mermaid
+flowchart TD
+    Start([all phases committed]) --> Gate[ship-code-review<br/>sonnet  ·  GATE]
+    Gate --> GateV{verdict?}
+    GateV -->|critical| GFix[fix-loop:<br/>respawn implementer<br/>cap = 2, same-defect detector]:::stop
+    GFix --> Gate
+    GateV -->|green/minor| TriggerEval[evaluate triggers]
+    TriggerEval --> Triggers{which signals?}
+    Triggers -->|always| Perf[ship-performance<br/>opus]
+    Triggers -.security signals.-> Sec[ship-security<br/>sonnet]
+    Triggers -.UI signals.-> Des[ship-design<br/>sonnet]
+
+    Perf --> Aggr
+    Sec --> Aggr
+    Des --> Aggr[deduplicate findings<br/>by rubric_dimension + location_hash]
+    Aggr --> AVerdict{worst verdict?}
+    AVerdict -->|green/minor| Done([panel done])
+    AVerdict -->|critical| AFix[fix-loop:<br/>cap = 2, same-defect detector]:::stop
+    AFix --> Gate
+
+    classDef stop fill:#f8e3e3,stroke:#dc322f,stroke-width:2px
+    classDef green fill:#e3f2dc,stroke:#859900,stroke-width:2px
+    class Done green
+```
+
+### Trigger evaluation
+
+**Security trigger** (sonnet, conditional). Fires if EITHER:
+- Diff `<base-ref>..HEAD` touches files matching: `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, raw SQL, `package.json`, `*.env*`, files introducing `dangerouslySetInnerHTML` or `eval(`.
+- Plan or out-of-scope mentions: `auth`, `login`, `password`, `token`, `secret`, `oauth`, `permission`, `admin`, `payment`, `pii`, `gdpr`, `encryption`.
+
+**Design trigger** (sonnet, conditional). Fires if EITHER:
+- Diff touches: `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.module.*`, `*.vue`, `*.svelte`.
+- Plan mentions: `figma.com/`, `mockup`, `screenshot`, `design system`, `mobile`, `breakpoint`, `responsive`.
+
+**Performance** (opus, always).
+
+### Why sequential?
+
+Code-review fires first as a cheap-signal gate. If the basic correctness layer is broken, spending opus tokens on performance analysis or sonnet tokens on security/design is waste. Once code-review is green, the parallel trio runs concurrently.
+
+### Deduplication
+
+When two panel agents flag the same `(rubric_dimension, location_hash)`, the lead keeps the higher-severity one with merged evidence. Reduces redundant fix-loop entries.
 
 ---
 
@@ -142,107 +166,100 @@ The fix loop respawns `ship-implementer` with the consolidated critical findings
 ```mermaid
 flowchart LR
     subgraph LeadCtx[/ship lead context]
-        Lead[orchestrator<br/>opus 1M]
+        Lead[orchestrator<br/>plan in memory<br/>sprint contracts via git]
     end
 
     Lead --> Grill[grill-me skill]
-    Lead --> P2P[prd-to-plan skill]
     Lead --> Imp[ship-implementer<br/>opus]
     Lead --> Ver[ship-verifier<br/>haiku]
-    Lead --> Rev[ship-reviewer<br/>sonnet]
-    Lead --> Vis[ship-visual-qa<br/>sonnet, conditional]
+    Lead --> CR[ship-code-review<br/>sonnet  ·  gate]
+    Lead --> Sec[ship-security<br/>sonnet  ·  cond]
+    Lead --> Perf[ship-performance<br/>opus]
+    Lead --> Des[ship-design<br/>sonnet  ·  cond]
     Lead --> Retro[ship-retro<br/>haiku]
 
     subgraph Vault[Obsidian vault — Sessions/_agents/ship/]
         IL[(implementer-lessons.md)]
         VL[(verifier-lessons.md)]
-        RL[(reviewer-lessons.md)]
-        VQL[(visual-qa-lessons.md)]
+        CRL[(code-review-lessons.md)]
+        SL[(security-lessons.md)]
+        PL[(performance-lessons.md)]
+        DL[(design-lessons.md)]
     end
 
     Imp -.reads at start.-> IL
     Ver -.reads at start.-> VL
-    Rev -.reads at start.-> RL
-    Vis -.reads at start.-> VQL
+    CR -.reads at start.-> CRL
+    Sec -.reads at start.-> SL
+    Perf -.reads at start.-> PL
+    Des -.reads at start.-> DL
 
     Retro ==auto-writes==> IL
     Retro ==auto-writes==> VL
-    Retro ==auto-writes==> RL
-    Retro ==auto-writes==> VQL
+    Retro ==auto-writes==> CRL
+    Retro ==auto-writes==> SL
+    Retro ==auto-writes==> PL
+    Retro ==auto-writes==> DL
 
     classDef agent fill:#e8eef7,stroke:#268bd2,stroke-width:1px
     classDef vault fill:#fdf6e3,stroke:#b58900,stroke-width:1px
-    class Imp,Ver,Rev,Vis,Retro agent
-    class IL,VL,RL,VQL vault
+    class Imp,Ver,CR,Sec,Perf,Des,Retro agent
+    class IL,VL,CRL,SL,PL,DL vault
 ```
 
-Lessons memory is bidirectional: each agent reads its own file at startup; retro auto-writes (max 1 lesson per role per run, tagged for pruning). Lessons compound across runs.
+Each subagent reads its own lessons file at startup. **Reconciliation rule:** lessons are priors, current task is evidence; on conflict, follow task and emit `lessonConflicts` so retro can flag the lesson for expiry.
+
+Retro writes structured 4-field lessons with auto-prune at 100-line cap. Lessons live in the user's personal vault — never in the repo.
 
 ---
 
-## State files (per run)
+## Output return shape (all reviewer agents)
 
-State dir is `<worktree>/.ship/<slug>/` in worktree mode, `<repo-root>/.ship/<slug>/` in `--here` mode. Always gitignored.
+```json
+{
+  "agent": "<role>",
+  "rubric": { "dimension1": "A-D", "dimension2": "A-D", ... },
+  "findings": [
+    {
+      "severity": "critical | minor",
+      "dimension": "<rubric key>",
+      "location": "<file:line or route>",
+      "summary": "<one-line>",
+      "fix_hint": "<concrete suggestion>",
+      "evidence": { "type": "test|log|trace|screenshot", "ref": "<verbatim or path>" }
+    }
+  ],
+  "verdict": "green | minor | critical",
+  "previousMode": "<from spawn, or null>",
+  "currentMode": "<short stable id of THIS critical pattern>",
+  "lessonConflicts": [{ "lesson": "...", "reason": "..." }]
+}
+```
 
-| File | Written by | Meaning |
-|---|---|---|
-| `context.md` | lead, after grill-me | resolved decisions; PRD-equivalent |
-| `plan.md` | lead, via prd-to-plan | multi-phase tracer-bullet plan |
-| `approved` | lead, after Gate 1 | empty file marking human approval |
-| `phase-N.commit` | lead, after implementer | empty file marking phase N committed |
-| `phase-N-verifier.md` | ship-verifier | test command + counts + JSON verdict |
-| `phase-N-reviewer.md` | ship-reviewer | findings table + JSON verdict |
-| `phase-N-visual.md` | ship-visual-qa (if fired) | screenshots + findings + JSON verdict |
-| `screenshots/phase-N/` | ship-visual-qa | only kept screenshots referenced in findings |
-| `retro.done` | lead, after retro | empty file marking run complete |
-
-Resume detection (Step 2) inspects which files exist to determine the next phase.
+`currentMode` enables the same-defect detector. `lessonConflicts` enables retro expiry.
 
 ---
 
-## Visual-qa signal detection
+## What `/ship` does NOT do
 
-`ship-visual-qa` is conditional. It fires **only if any one** of:
-
-- Plan or context contains `figma.com/`
-- Plan or context mentions `mockup`, `screenshot`, `design system`, `mobile`, `breakpoint`, `responsive`
-- Phase commit changes any file matching `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.module.*`, `*.vue`, `*.svelte`
-
-This avoids spawning a sonnet subagent on phases that touch only backend code.
+- **Manage worktrees.** No sweep, no create, no `--here` flag, no mode detection. User pre-creates if they want isolation.
+- **Persist state to disk.** No `.ship/` directory. Resume across sessions not supported.
+- **Auto-merge PRs.** Always stops at PR. Merge requires explicit follow-up user request.
+- **Write to repo files via retro.** No CLAUDE.md edits. Lessons are personal cross-repo, vault only.
+- **Auto-start dev servers.** Design agent reports critical if no dev server detected.
+- **Push to `<base-ref>`.** Refuses if user is on main with a dirty tree; auto-branches if main is clean.
+- **Override the PR base branch.** Always uses repo default. Rebase target manually if needed.
 
 ---
 
 ## Hard rules (never violate)
 
-- Default to a worktree. `--here` runs in the main checkout but refuses on a dirty tree, and refuses if a live worktree already holds `ship/<slug>` for the same slug.
-- One Gate only (plan approval). Never auto-approve.
-- Never invent phases — execute what `plan.md` says.
-- Never silently skip a phase. Failure → stop and ask.
-- Push and open a PR at the end — but never **merge**. Merge stays human-only.
-- Visual-qa fires conditionally. Never force-run on every phase.
-- Never delete `.ship/<slug>/` mid-run. Resume needs it.
-
----
-
-## Why these defaults?
-
-| Choice | Rationale |
-|---|---|
-| Opus for implementer | reasoning-heavy code generation |
-| Haiku for verifier | I/O-bound: run tests, parse output |
-| Sonnet for reviewer | diff reasoning needs more than haiku, less than opus |
-| Sonnet for visual-qa | vision capability + multi-step screenshot orchestration |
-| Haiku for retro | summarization; cheap |
-| One Gate (plan only) | grill-me already grills; prd-to-plan structures; reviewer post-hoc — adversarial pressure baked in |
-| Auto-write retro | provenance tags make pruning trivial; human gate adds friction without proportional value |
-| Branch off LOCAL ref | captures unpushed housekeeping (e.g. fresh gitignore) |
-| Phase-by-phase, not full run | natural cut points for verify+review; deliberate pause if anything red |
-
----
-
-## What's not (yet) covered
-
-- **Bug fixes** — /ship is overkill for one-line fixes. Use direct edit + commit.
-- **Multi-package monorepos** — untested at v1. Should work but coordination across packages may need extra prompts.
-- **Cross-machine resume** — `.ship/` is local-only. Resume works on the same machine; a different laptop needs to start fresh.
-- **Concurrent /ship runs** — different slugs can coexist in worktree mode (each in its own worktree). `--here` mode is single-occupancy by definition (one main checkout, one HEAD). Same slug across modes → Step 2 detects mode from on-disk state and resumes; cross-mode collision (worktree + `--here` for same slug) is refused.
+- One Gate only — inline `go` at end of grill-me. Never auto-approve.
+- One commit per phase, subject `phase <N>: <title>`, body embeds the sprint triplet.
+- Fix-loop commits are forward-only (`fix: <topic>`). Never amend, never rebase.
+- Per-phase verifier and end-of-run panel each have **independent** retry caps of 2.
+- Same-defect detector (`previousMode == currentMode`) overrides retry counters.
+- Cross-component / boundary defects auto-promote to critical.
+- Findings without `evidence` are dropped.
+- Lessons file cap = 100 lines. Retro prunes before write or skips.
+- Push and open a PR at the end. Never merge.

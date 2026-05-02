@@ -4,16 +4,43 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] — 2026-05-02
+
+Full pipeline redesign. Breaking — agents renamed, `.ship/` directory removed, plan-approval gate replaced by inline `go`.
 
 ### Added
-- `--here` flag: `/ship --here <idea>` runs in the main checkout instead of a worktree. Refuses on dirty tree or live-worktree collision for the same slug. Useful when you want ship to operate on the same checkout already open in your editor.
-- Step 0 sweep extended to clean orphan `<repo-root>/.ship/<slug>/` state dirs left behind by `--here` runs whose branch is `[gone]` or merged to base.
-- Step 2 mode detection: resumes infer worktree vs `--here` from on-disk state and ignore the flag on this invocation. Cross-mode collisions (state for both modes for the same slug) are refused.
+- **End-of-run review panel** with sequential gate. `ship-code-review` runs first (gate); on green, `ship-security` (conditional) + `ship-performance` (always, opus) + `ship-design` (conditional) fan out in parallel.
+- `ship-security` — sonnet, conditional. Triggers on auth/crypto/payment file patterns or plan keywords. OWASP top-10, secrets, input validation, dep hygiene.
+- `ship-performance` — opus, always. N+1, render thrash, sync-in-async, algorithmic complexity, payload bloat.
+- **Structured rubrics** in every reviewer return — A-D scores per dimension. Enables dedup across panel agents by `(rubric_dimension, location_hash)`.
+- **Evidence requirement** on every finding — `evidence: {type: test|log|trace|screenshot, ref}`. Findings without evidence dropped before lead reads them.
+- **Same-defect detector** — agents return `currentMode` (short failure shape ID); identical mode across attempts triggers immediate escalation without burning retry budget.
+- **Sprint contract in commit body** — every phase commit embeds the Behavior/Verification/State triplet, recoverable via `git show <sha>`. Replaces filesystem state.
+- **Cross-component / boundary defect auto-promotion** — state propagation, resource leaks, interface mismatches always critical.
+- **Lesson reconciliation** — agents emit `lessonConflicts` when prior lessons contradict the current task; retro flags those lessons for expiry.
+- **Structured 4-field lesson template** — Trigger / Symptom / Correction / Expires-when (no freeform). 100-line cap per role file with auto-prune by retro.
+- **PR template detection** — `.github/PULL_REQUEST_TEMPLATE.md` → CONTRIBUTING.md → fallback. Commit/title style detected from `git log --oneline -30`.
+- **Auto-branch on default branch** — if user invokes /ship while on `<base-ref>`, agent derives branch name from detected repo conventions (`feat/`, `fix/`, fallback `ship/<slug>`).
 
 ### Changed
-- Hard rule "Always use a worktree" → "Default to a worktree; `--here` is available with safety guards (dirty-tree refusal, live-worktree collision refusal, HEAD-vs-`ship/<slug>` precondition before each phase commit)."
-- Step 9 handoff text is mode-aware (worktree path vs "you are on" line; "next /ship sweeps this worktree" vs "...the .ship/<slug>/ state dir").
+- **Single inline approval** at end of grill-me — replaces separate plan-approval gate. User types `go` in chat; no `.ship/approved` marker.
+- **Per-phase verifier and end-of-run panel each have independent retry caps of 2.** Same-defect detector overrides both.
+- **Fix-loops are forward-only commits** (`fix: <topic>`) — no amend, no rebase.
+- `ship-reviewer` → `ship-code-review` (renamed). Now merges bugs + code quality. Gate-first.
+- `ship-visual-qa` → `ship-design` (renamed). Trusts user on dev server (reports critical if missing instead of auto-starting).
+- Retro now writes **only to Obsidian vault**. No CLAUDE.md writes. Lessons are personal/cross-repo.
+- PR body now uses 3-layer evidence block (static / runtime / e2e), explicit Out-of-scope section, fix-loop audit trail. No vague verbs allowed.
+
+### Removed
+- **Worktree management.** Step 0 sweep, `--here` flag, mode detection, branch refuse-on-dirty for non-main, `<worktree>/.ship/` paths. /ship runs in whatever directory the user invoked it from.
+- **`.ship/` filesystem state.** No `context.md`, `plan.md`, `approved`, `phase-N.commit`, `phase-N-*.md`, `retro.done` markers. Plan + decisions live in lead context for the run; sprint contracts live in commit bodies; screenshots in ephemeral `/tmp/ship-<runId>/`.
+- **Resume across sessions.** Without state on disk, an interrupted run is lost — re-run /ship from scratch.
+- **`prd-to-plan` skill invocation.** grill-me alone produces the plan inline (lead transforms its output into ship's strict triplet+out-of-scope format).
+- **Plan-approval gate as a separate step.** Folded into grill-me's natural conclusion.
+
+### Migration notes
+- Old agent symlinks (`ship-reviewer`, `ship-visual-qa`) are removed by `install.sh` automatically.
+- Existing lesson files (`reviewer-lessons.md`, `visual-qa-lessons.md`) are not migrated — port them to `code-review-lessons.md` / `design-lessons.md` manually if you want continuity. New format is structured 4-field; freeform lessons from v1 won't fit cleanly.
 
 ## [1.0.0] — 2026-04-27
 

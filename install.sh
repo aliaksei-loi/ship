@@ -36,8 +36,17 @@ else
   echo "  created: $SKILL_LIVE → ../../.agents/skills/ship"
 fi
 
-# 5 agent files: ~/.claude/agents/ship-<role>.md → repo/agents/ship-<role>.md
-for role in implementer verifier reviewer visual-qa retro; do
+# Remove stale symlinks for v1 agents that no longer exist (ship-reviewer, ship-visual-qa).
+for stale in reviewer visual-qa; do
+  STALE_LINK="$HOME/.claude/agents/ship-$stale.md"
+  if [ -L "$STALE_LINK" ]; then
+    rm "$STALE_LINK"
+    echo "  removed v1 symlink: $STALE_LINK"
+  fi
+done
+
+# 7 agent files: ~/.claude/agents/ship-<role>.md → repo/agents/ship-<role>.md
+for role in implementer verifier code-review security performance design retro; do
   AGENT_LIVE="$HOME/.claude/agents/ship-$role.md"
   AGENT_SRC="$REPO/agents/ship-$role.md"
   if [ ! -f "$AGENT_SRC" ]; then
