@@ -122,10 +122,21 @@ ship/
 │   ├── ship-performance.md      # opus  — always-on perf review
 │   ├── ship-design.md           # sonnet — conditional, screenshots + Figma
 │   └── ship-retro.md            # haiku — structured 4-field lessons → vault
+├── state-chart/                 # interactive state machine (Next.js + xstate v5)
 ├── ARCHITECTURE.md              # detailed flow + mermaid diagrams
 ├── install.sh                   # symlink setup
 ├── README.md
 └── CHANGELOG.md
+```
+
+## Interactive state chart
+
+A Next.js app under [`state-chart/`](state-chart/) renders the workflow as an interactive xstate v5 machine: pick a scenario (happy path, livelock, panel fix-loop, etc.) or fire events manually and watch the graph respond. Useful for testing the design and onboarding new contributors.
+
+```bash
+cd state-chart
+pnpm install
+pnpm dev      # http://localhost:3000
 ```
 
 ## Customizing
