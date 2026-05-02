@@ -132,7 +132,35 @@ export function buildNodes(
   }));
 }
 
-export function buildEdges(currentId: string, selectedId: string | null): Edge[] {
+export type Theme = "light" | "dark";
+
+const PALETTE: Record<Theme, Record<EdgeKind | "dim" | "labelBg" | "labelFg", string>> = {
+  dark: {
+    user: "rgb(245 158 11)",
+    verdict: "rgb(228 228 231)",
+    auto: "rgb(161 161 170)",
+    dim: "rgb(82 82 91)",
+    labelBg: "rgb(9 9 11)",
+    labelFg: "rgb(244 244 245)",
+  },
+  light: {
+    user: "rgb(217 119 6)",
+    verdict: "rgb(63 63 70)",
+    auto: "rgb(113 113 122)",
+    dim: "rgb(212 212 216)",
+    labelBg: "rgb(255 255 255)",
+    labelFg: "rgb(24 24 27)",
+  },
+};
+
+export function buildEdges(
+  currentId: string,
+  selectedId: string | null,
+  theme: Theme = "dark",
+): Edge[] {
+  const p = PALETTE[theme];
+  const edgeColor = (kind: EdgeKind, highlighted: boolean) =>
+    highlighted ? p[kind] : p.dim;
 
   return EDGE_DEFS.map((e, i) => {
     const isFromCurrent = e.from === currentId;
@@ -151,18 +179,18 @@ export function buildEdges(currentId: string, selectedId: string | null): Edge[]
         stroke: edgeColor(e.kind, isHighlighted),
         strokeWidth: isHighlighted ? 2.4 : 1.1,
         strokeDasharray: e.kind === "auto" && !isHighlighted ? "3 4" : undefined,
-        opacity: isHighlighted ? 1 : 0.32,
+        opacity: isHighlighted ? 1 : theme === "light" ? 0.55 : 0.32,
       },
       labelStyle: {
         fontFamily: "var(--font-geist-mono)",
         fontSize: 10,
         fontWeight: 500,
-        fill: "rgb(244 244 245)",
+        fill: p.labelFg,
       },
       labelBgStyle: {
-        fill: "rgb(9 9 11)",
+        fill: p.labelBg,
         fillOpacity: 0.95,
-        stroke: edgeColor(e.kind, true),
+        stroke: p[e.kind],
         strokeWidth: 0.5,
       },
       labelBgPadding: [6, 3],
@@ -175,20 +203,6 @@ export function buildEdges(currentId: string, selectedId: string | null): Edge[]
       },
     };
   });
-}
-
-function edgeColor(kind: EdgeKind, highlighted: boolean) {
-  if (!highlighted) {
-    return "rgb(82 82 91)"; // zinc-600
-  }
-  switch (kind) {
-    case "user":
-      return "rgb(245 158 11)"; // amber-500
-    case "verdict":
-      return "rgb(228 228 231)"; // zinc-200
-    case "auto":
-      return "rgb(161 161 170)"; // zinc-400
-  }
 }
 
 export function activeIdFromState(value: unknown): string {
