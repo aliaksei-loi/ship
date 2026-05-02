@@ -106,8 +106,8 @@ export function buildGraph(activeId: string): { nodes: GraphNode[]; edges: Edge[
     markerEnd: {
       type: MarkerType.ArrowClosed,
       color: edgeColor(e.kind),
-      width: 12,
-      height: 12,
+      width: 18,
+      height: 18,
     },
   }));
 
@@ -117,19 +117,19 @@ export function buildGraph(activeId: string): { nodes: GraphNode[]; edges: Edge[
 function edgeColor(kind: EdgeDef["kind"]) {
   switch (kind) {
     case "user":
-      return "rgb(217 119 6)"; // amber-600
+      return "rgb(245 158 11)"; // amber-500
     case "verdict":
-      return "rgb(82 82 91)"; // zinc-600
+      return "rgb(161 161 170)"; // zinc-400
     case "auto":
-      return "rgb(63 63 70)"; // zinc-700
+      return "rgb(113 113 122)"; // zinc-500
   }
 }
 
 function edgeStyleByKind(kind: EdgeDef["kind"], active: boolean) {
   return {
     stroke: edgeColor(kind),
-    strokeWidth: active ? 2 : 1,
-    opacity: active ? 1 : 0.6,
+    strokeWidth: active ? 2.4 : 1.4,
+    opacity: active ? 1 : 0.75,
   };
 }
 

@@ -4,7 +4,9 @@ import { useMemo } from "react";
 import {
   Background,
   Controls,
+  Handle,
   type NodeProps,
+  Position,
   ReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -25,7 +27,7 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
   return (
     <div
       className={cn(
-        "rounded-md border bg-zinc-900/95 px-3 py-2 text-center shadow-md transition-all",
+        "relative rounded-md border bg-zinc-900/95 px-3 py-2 text-center shadow-md transition-all",
         accent,
         data.isActive
           ? "scale-[1.04] border-amber-400 ring-2 ring-amber-400/50 shadow-[0_0_24px_-4px_rgba(245,158,11,0.7)]"
@@ -33,12 +35,22 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
       )}
       style={{ width: 180 }}
     >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!h-1.5 !w-1.5 !border-zinc-700 !bg-zinc-800"
+      />
       <div className="font-mono text-[11px] tracking-tight text-zinc-100">
         {data.label}
       </div>
       <div className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-zinc-500">
         {data.group}
       </div>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!h-1.5 !w-1.5 !border-zinc-700 !bg-zinc-800"
+      />
     </div>
   );
 }
