@@ -131,6 +131,8 @@ ship/
 
 ## Interactive state chart
 
+Live: **<https://state-chart.vercel.app>**
+
 A Next.js app under [`state-chart/`](state-chart/) renders the workflow as an interactive xstate v5 machine: pick a scenario (happy path, livelock, panel fix-loop, etc.) or fire events manually and watch the graph respond. Useful for testing the design and onboarding new contributors.
 
 ```bash
