@@ -75,8 +75,8 @@ export const EDGE_DEFS: EdgeDef[] = [
   { from: "pushing", to: "done", event: "PUSH_SUCCESS", label: "PUSH_SUCCESS / FAIL", kind: "auto" },
 ];
 
-const NODE_WIDTH = 184;
-const NODE_HEIGHT = 60;
+const NODE_WIDTH = 208;
+const NODE_HEIGHT = 68;
 
 export function buildGraph(
   currentId: string,
@@ -87,7 +87,15 @@ export function buildGraph(
   );
 
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", nodesep: 28, ranksep: 56, marginx: 20, marginy: 20 });
+  g.setGraph({
+    rankdir: "TB",
+    nodesep: 60,
+    ranksep: 90,
+    edgesep: 30,
+    marginx: 28,
+    marginy: 28,
+    ranker: "tight-tree",
+  });
   g.setDefaultEdgeLabel(() => ({}));
 
   for (const n of NODE_DEFS) g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
@@ -121,27 +129,37 @@ export function buildGraph(
       id: `e${i}`,
       source: e.from,
       target: e.to,
-      label: e.label,
+      // labels only on highlighted edges — declutters everything else
+      label: isHighlighted ? e.label : undefined,
       type: "smoothstep",
       animated: isFromCurrent,
+      pathOptions: { borderRadius: 14, offset: 18 },
+      zIndex: isHighlighted ? 10 : 0,
       style: {
         stroke: edgeColor(e.kind, isHighlighted),
-        strokeWidth: isHighlighted ? 2.4 : 1.2,
-        opacity: isHighlighted ? 1 : 0.4,
+        strokeWidth: isHighlighted ? 2.4 : 1.1,
+        strokeDasharray: e.kind === "auto" && !isHighlighted ? "3 4" : undefined,
+        opacity: isHighlighted ? 1 : 0.32,
       },
       labelStyle: {
         fontFamily: "var(--font-geist-mono)",
-        fontSize: 9,
-        fill: isHighlighted ? "rgb(228 228 231)" : "rgb(113 113 122)",
+        fontSize: 10,
+        fontWeight: 500,
+        fill: "rgb(244 244 245)",
       },
-      labelBgStyle: { fill: "rgb(9 9 11)", fillOpacity: 0.9 },
-      labelBgPadding: [4, 2],
-      labelBgBorderRadius: 2,
+      labelBgStyle: {
+        fill: "rgb(9 9 11)",
+        fillOpacity: 0.95,
+        stroke: edgeColor(e.kind, true),
+        strokeWidth: 0.5,
+      },
+      labelBgPadding: [6, 3],
+      labelBgBorderRadius: 4,
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: edgeColor(e.kind, isHighlighted),
-        width: 18,
-        height: 18,
+        width: 20,
+        height: 20,
       },
     };
   });

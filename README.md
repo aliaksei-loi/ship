@@ -122,21 +122,21 @@ ship/
 │   ├── ship-performance.md      # opus  — always-on perf review
 │   ├── ship-design.md           # sonnet — conditional, screenshots + Figma
 │   └── ship-retro.md            # haiku — structured 4-field lessons → vault
-├── state-chart/                 # interactive state machine (Next.js + xstate v5)
+├── ship-machine/                # interactive state explorer (Next.js + xstate v5)
 ├── ARCHITECTURE.md              # detailed flow + mermaid diagrams
 ├── install.sh                   # symlink setup
 ├── README.md
 └── CHANGELOG.md
 ```
 
-## Interactive state chart
+## Interactive state explorer
 
 Live: **<https://state-chart.vercel.app>**
 
-A Next.js app under [`state-chart/`](state-chart/) renders the workflow as an interactive xstate v5 machine: pick a scenario (happy path, livelock, panel fix-loop, etc.) or fire events manually and watch the graph respond. Useful for testing the design and onboarding new contributors.
+A Next.js app under [`ship-machine/`](ship-machine/) renders the workflow as an interactive xstate v5 state explorer. Click any state to see its outgoing transitions; fire transitions to walk the machine through fix-loops, livelocks, and escalation paths. Amber glow marks the current state, sky ring marks the selected state for preview.
 
 ```bash
-cd state-chart
+cd ship-machine
 pnpm install
 pnpm dev      # http://localhost:3000
 ```

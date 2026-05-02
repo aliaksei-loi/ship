@@ -97,7 +97,7 @@ function Footer() {
         <span>built with xstate v5 + @xyflow/react + Next.js</span>
         <span className="text-zinc-800">·</span>
         <a
-          href="https://github.com/aliaksei-loi/ship/tree/main/state-chart"
+          href="https://github.com/aliaksei-loi/ship/tree/main/ship-machine"
           target="_blank"
           rel="noopener noreferrer"
           className="hover:text-zinc-400"

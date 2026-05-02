@@ -6,6 +6,7 @@ import {
   Controls,
   Handle,
   type NodeProps,
+  Panel as RFPanel,
   Position,
   ReactFlow,
 } from "@xyflow/react";
@@ -44,17 +45,17 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
         // dim everything else
         !data.isCurrent && !data.isSelected && !data.isReachable && "opacity-70",
       )}
-      style={{ width: 184 }}
+      style={{ width: 208 }}
     >
       <Handle
         type="target"
         position={Position.Top}
         className="!h-1.5 !w-1.5 !border-zinc-700 !bg-zinc-800"
       />
-      <div className="font-mono text-[11px] tracking-tight text-zinc-100">
+      <div className="font-mono text-[12px] leading-tight tracking-tight text-zinc-100">
         {data.label}
       </div>
-      <div className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-zinc-500">
+      <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-500">
         {data.group}
       </div>
       <Handle
@@ -67,6 +68,41 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
 }
 
 const nodeTypes = { shipState: ShipStateNode };
+
+function Legend() {
+  return (
+    <div className="rounded-md border border-zinc-800/80 bg-zinc-950/85 px-3 py-2 backdrop-blur">
+      <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500">
+        legend
+      </div>
+      <div className="mt-1.5 grid grid-cols-1 gap-y-1 text-[10px] text-zinc-400">
+        <LegendDot className="bg-amber-400" label="current" />
+        <LegendDot className="bg-sky-400" label="selected" />
+        <LegendLine className="border-amber-500" label="user event" />
+        <LegendLine className="border-zinc-200" label="agent verdict" />
+        <LegendLine className="border-zinc-400 [border-style:dashed]" label="auto" />
+      </div>
+    </div>
+  );
+}
+
+function LegendDot({ className, label }: { className: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className={cn("h-2 w-2 rounded-full", className)} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function LegendLine({ className, label }: { className: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className={cn("h-0 w-5 border-t-2", className)} />
+      <span>{label}</span>
+    </div>
+  );
+}
 
 type Props = {
   currentId: string;
@@ -99,12 +135,15 @@ export function Graph({ currentId, selectedId, onSelect }: Props) {
       onPaneClick={() => onSelect(null)}
       defaultEdgeOptions={{ type: "smoothstep" }}
     >
-      <Background gap={24} size={1} color="rgba(255,255,255,0.04)" />
+      <Background gap={28} size={1} color="rgba(255,255,255,0.05)" />
       <Controls
         showInteractive={false}
         className="!border-zinc-800 !bg-zinc-950"
         style={{ colorScheme: "dark" }}
       />
+      <RFPanel position="bottom-right">
+        <Legend />
+      </RFPanel>
     </ReactFlow>
   );
 }
