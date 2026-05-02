@@ -5,81 +5,86 @@ import type { ShipContext } from "@/machine/shipMachine";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  activeId: string;
+  currentId: string;
   context: ShipContext;
   status: "idle" | "running" | "done" | "aborted";
 };
 
-export function Inspector({ activeId, context, status }: Props) {
-  const livelock = !!context.previousMode && context.previousMode === context.currentMode;
+export function Inspector({ currentId, context, status }: Props) {
+  const livelock =
+    !!context.previousMode && context.previousMode === context.currentMode;
 
   return (
     <Panel title="Inspector">
-      <div>
-        <Field
-          label="State"
-          value={
+      <Field
+        label="Current"
+        value={
+          <span
+            className={cn(
+              status === "aborted" && "text-red-400",
+              status === "done" && "text-emerald-400",
+              status === "running" && "text-amber-400",
+            )}
+          >
+            {currentId}
+          </span>
+        }
+      />
+      <Field label="Status" value={status} />
+      <Field
+        label="Phase"
+        value={`${context.currentPhase} / ${context.totalPhases}`}
+      />
+      <Field
+        label="Phase fix attempts"
+        value={
+          <span className={cn(context.phaseFixAttempts >= 2 && "text-red-400")}>
+            {context.phaseFixAttempts} / 2
+          </span>
+        }
+      />
+      <Field
+        label="Panel fix attempts"
+        value={
+          <span className={cn(context.panelFixAttempts >= 2 && "text-red-400")}>
+            {context.panelFixAttempts} / 2
+          </span>
+        }
+      />
+      <Field
+        label="Triggers"
+        value={
+          <span className="space-x-1">
             <span
               className={cn(
-                status === "aborted" && "text-red-400",
-                status === "done" && "text-emerald-400",
+                context.triggers.security ? "text-zinc-200" : "text-zinc-600",
               )}
             >
-              {activeId}
+              security
             </span>
-          }
-        />
-        <Field label="Status" value={status} />
-        <Field
-          label="Phase"
-          value={`${context.currentPhase} / ${context.totalPhases}`}
-        />
-        <Field
-          label="Phase fix attempts"
-          value={
-            <span className={cn(context.phaseFixAttempts >= 2 && "text-red-400")}>
-              {context.phaseFixAttempts} / 2
+            <span className="text-zinc-700">·</span>
+            <span
+              className={cn(
+                context.triggers.design ? "text-zinc-200" : "text-zinc-600",
+              )}
+            >
+              design
             </span>
-          }
-        />
-        <Field
-          label="Panel fix attempts"
-          value={
-            <span className={cn(context.panelFixAttempts >= 2 && "text-red-400")}>
-              {context.panelFixAttempts} / 2
-            </span>
-          }
-        />
-        <Field
-          label="Triggers"
-          value={
-            <span className="space-x-1">
-              <span className={cn(context.triggers.security ? "text-zinc-200" : "text-zinc-600")}>
-                security
-              </span>
-              <span className="text-zinc-700">·</span>
-              <span className={cn(context.triggers.design ? "text-zinc-200" : "text-zinc-600")}>
-                design
-              </span>
-            </span>
-          }
-        />
-        <Field
-          label="Previous mode"
-          value={context.previousMode ?? "—"}
-        />
-        <Field
-          label="Current mode"
-          value={
-            <span className={cn(livelock && "text-red-400")}>
-              {context.currentMode ?? "—"}
-              {livelock && " · LIVELOCK"}
-            </span>
-          }
-        />
-        <Field label="Branch" value={context.branchName} />
-        <Field label="Base ref" value={context.baseRef} />
-      </div>
+          </span>
+        }
+      />
+      <Field label="Previous mode" value={context.previousMode ?? "—"} />
+      <Field
+        label="Current mode"
+        value={
+          <span className={cn(livelock && "text-red-400")}>
+            {context.currentMode ?? "—"}
+            {livelock && " · LIVELOCK"}
+          </span>
+        }
+      />
+      <Field label="Branch" value={context.branchName} />
+      <Field label="Base ref" value={context.baseRef} />
     </Panel>
   );
 }

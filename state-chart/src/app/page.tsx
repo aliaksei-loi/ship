@@ -1,28 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useMachine } from "@xstate/react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { Graph } from "@/components/Graph";
-import { ScenarioPicker } from "@/components/ScenarioPicker";
-import { EventButtons } from "@/components/EventButtons";
 import { Inspector } from "@/components/Inspector";
-import { EventLog, type LogEntry } from "@/components/EventLog";
-import { shipMachine, type ShipEvent } from "@/machine/shipMachine";
+import { TransitionsPanel } from "@/components/TransitionsPanel";
+import { shipMachine } from "@/machine/shipMachine";
 import { activeIdFromState } from "@/machine/stateGraph";
-import { type Scenario } from "@/machine/scenarios";
 
 export default function Home() {
   const [snapshot, send] = useMachine(shipMachine);
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const stepIndex = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const logId = useRef(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const activeId = activeIdFromState(snapshot.value);
+  const currentId = activeIdFromState(snapshot.value);
   const status: "idle" | "running" | "done" | "aborted" = snapshot.matches("done")
     ? "done"
     : snapshot.matches("aborted")
@@ -31,126 +23,34 @@ export default function Home() {
         ? "idle"
         : "running";
 
-  const fire = useCallback(
-    (event: ShipEvent, source: LogEntry["source"], note?: string) => {
-      const fromValue = activeIdFromState(snapshot.value);
-      send(event);
-      setLog((prev) => [
-        ...prev,
-        {
-          id: ++logId.current,
-          time: new Date(),
-          event,
-          fromState: fromValue,
-          toState: "→",
-          source,
-          note,
-        },
-      ]);
-    },
-    [send, snapshot.value],
-  );
-
-  useEffect(() => {
-    setLog((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      if (last.toState !== "→") return prev;
-      return [
-        ...prev.slice(0, -1),
-        { ...last, toState: activeIdFromState(snapshot.value) },
-      ];
-    });
-  }, [snapshot.value]);
-
-  const clearTimer = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-  }, []);
-
-  const advanceScenario = useCallback(
-    (scenario: Scenario) => {
-      const i = stepIndex.current;
-      if (i >= scenario.steps.length) {
-        setIsPlaying(false);
-        return;
-      }
-      const step = scenario.steps[i];
-      timer.current = setTimeout(() => {
-        fire(step.event, "scenario", step.note);
-        stepIndex.current = i + 1;
-        advanceScenario(scenario);
-      }, step.delay);
-    },
-    [fire],
-  );
-
-  const handlePlay = useCallback(
-    (scenario: Scenario) => {
-      clearTimer();
-      send({ type: "RESET" });
-      setLog([]);
-      stepIndex.current = 0;
-      setCurrentScenario(scenario);
-      setIsPlaying(true);
-      advanceScenario(scenario);
-    },
-    [advanceScenario, clearTimer, send],
-  );
-
-  const handleStop = useCallback(() => {
-    clearTimer();
-    setIsPlaying(false);
-    setCurrentScenario(null);
-  }, [clearTimer]);
-
-  const handlePause = useCallback(() => {
-    clearTimer();
-    setIsPlaying(false);
-  }, [clearTimer]);
-
-  const handleResume = useCallback(() => {
-    if (!currentScenario) return;
-    setIsPlaying(true);
-    advanceScenario(currentScenario);
-  }, [advanceScenario, currentScenario]);
+  const focusedId = selectedId ?? currentId;
 
   const handleReset = useCallback(() => {
-    clearTimer();
-    setIsPlaying(false);
-    setCurrentScenario(null);
-    setLog([]);
     send({ type: "RESET" });
-  }, [clearTimer, send]);
-
-  useEffect(() => () => clearTimer(), [clearTimer]);
+    setSelectedId(null);
+  }, [send]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full flex-col">
       <Header />
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
-        <aside className="flex min-h-0 flex-col gap-3">
-          <ScenarioPicker
-            current={currentScenario}
-            isPlaying={isPlaying}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onResume={handleResume}
-            onStop={handleStop}
-            onReset={handleReset}
-          />
-          <EventButtons send={(e) => fire(e, "manual")} disabled={isPlaying} />
-        </aside>
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-h-[480px] overflow-hidden rounded-lg border border-zinc-800/80 bg-zinc-950/40">
           <ReactFlowProvider>
-            <Graph activeId={activeId} />
+            <Graph
+              currentId={currentId}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
           </ReactFlowProvider>
         </section>
         <aside className="flex min-h-0 flex-col gap-3">
-          <Inspector activeId={activeId} context={snapshot.context} status={status} />
-          <EventLog entries={log} />
+          <Inspector currentId={currentId} context={snapshot.context} status={status} />
+          <TransitionsPanel
+            selectedId={focusedId}
+            currentId={currentId}
+            send={send}
+            onReset={handleReset}
+          />
         </aside>
       </main>
       <Footer />
@@ -161,7 +61,7 @@ export default function Home() {
 function Header() {
   return (
     <header className="border-b border-zinc-900/80 bg-zinc-950/60 px-5 py-3 backdrop-blur">
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         <div className="flex items-center gap-3">
           <span className="text-base">🚢</span>
           <h1 className="font-mono text-sm font-medium tracking-tight text-zinc-100">
@@ -181,8 +81,9 @@ function Header() {
           >
             /ship
           </a>{" "}
-          v2 workflow. Pick a scenario or fire events manually to see how the orchestrator handles
-          fix-loops, livelocks, and user escalations.
+          v2 workflow. Click any state to see its outgoing transitions; fire
+          them to walk the machine. Amber glow = current. Sky ring = selected
+          for preview.
         </p>
       </div>
     </header>

@@ -15,10 +15,10 @@ import { buildGraph, type GraphNode } from "@/machine/stateGraph";
 import { cn } from "@/lib/utils";
 
 const groupAccent: Record<string, string> = {
-  input: "border-sky-500/40 shadow-sky-500/20",
-  phase: "border-emerald-500/40 shadow-emerald-500/20",
-  panel: "border-violet-500/40 shadow-violet-500/20",
-  wrap: "border-amber-500/40 shadow-amber-500/20",
+  input: "border-sky-500/40",
+  phase: "border-emerald-500/40",
+  panel: "border-violet-500/40",
+  wrap: "border-amber-500/40",
 };
 
 function ShipStateNode({ data }: NodeProps<GraphNode>) {
@@ -27,13 +27,24 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
   return (
     <div
       className={cn(
-        "relative rounded-md border bg-zinc-900/95 px-3 py-2 text-center shadow-md transition-all",
+        "relative cursor-pointer rounded-md border bg-zinc-900/95 px-3 py-2 text-center shadow-md transition-all",
         accent,
-        data.isActive
-          ? "scale-[1.04] border-amber-400 ring-2 ring-amber-400/50 shadow-[0_0_24px_-4px_rgba(245,158,11,0.7)]"
-          : "opacity-90",
+        // current: amber glow
+        data.isCurrent &&
+          "scale-[1.05] !border-amber-400 ring-2 ring-amber-400/60 shadow-[0_0_28px_-4px_rgba(245,158,11,0.8)]",
+        // selected (clicked, not current): blue ring
+        data.isSelected &&
+          !data.isCurrent &&
+          "ring-2 ring-sky-400/60 !border-sky-400",
+        // reachable from current: subtle highlight
+        data.isReachable &&
+          !data.isCurrent &&
+          !data.isSelected &&
+          "border-zinc-500 shadow-[0_0_12px_-4px_rgba(228,228,231,0.4)]",
+        // dim everything else
+        !data.isCurrent && !data.isSelected && !data.isReachable && "opacity-70",
       )}
-      style={{ width: 180 }}
+      style={{ width: 184 }}
     >
       <Handle
         type="target"
@@ -57,8 +68,17 @@ function ShipStateNode({ data }: NodeProps<GraphNode>) {
 
 const nodeTypes = { shipState: ShipStateNode };
 
-export function Graph({ activeId }: { activeId: string }) {
-  const { nodes, edges } = useMemo(() => buildGraph(activeId), [activeId]);
+type Props = {
+  currentId: string;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+};
+
+export function Graph({ currentId, selectedId, onSelect }: Props) {
+  const { nodes, edges } = useMemo(
+    () => buildGraph(currentId, selectedId),
+    [currentId, selectedId],
+  );
 
   return (
     <ReactFlow
@@ -74,7 +94,9 @@ export function Graph({ activeId }: { activeId: string }) {
       colorMode="dark"
       nodesDraggable={false}
       nodesConnectable={false}
-      elementsSelectable={false}
+      elementsSelectable={true}
+      onNodeClick={(_, node) => onSelect(node.id)}
+      onPaneClick={() => onSelect(null)}
       defaultEdgeOptions={{ type: "smoothstep" }}
     >
       <Background gap={24} size={1} color="rgba(255,255,255,0.04)" />

@@ -32,22 +32,19 @@ export function Panel({
   );
 }
 
-export function Field({ label, value, mono = true }: { label: string; value: ReactNode; mono?: boolean }) {
+export function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-zinc-900/80 px-3 py-1.5 last:border-0">
-      <span className="text-[11px] uppercase tracking-wider text-zinc-500">{label}</span>
-      <span className={cn("text-xs text-zinc-200", mono && "font-mono")}>{value}</span>
-    </div>
-  );
-}
-
-export function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5 px-3 py-2">
-      <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-600">
-        {title}
-      </div>
-      <div className="flex flex-col gap-1">{children}</div>
+      <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+        {label}
+      </span>
+      <span className="font-mono text-xs text-zinc-200">{value}</span>
     </div>
   );
 }
