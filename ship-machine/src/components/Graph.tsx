@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Background,
   Controls,
@@ -9,10 +9,17 @@ import {
   Panel as RFPanel,
   Position,
   ReactFlow,
+  useEdgesState,
+  useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { buildGraph, type GraphNode } from "@/machine/stateGraph";
+import {
+  buildEdges,
+  buildNodes,
+  computeLayout,
+  type GraphNode,
+} from "@/machine/stateGraph";
 import { cn } from "@/lib/utils";
 
 const groupAccent: Record<string, string> = {
@@ -111,16 +118,31 @@ type Props = {
 };
 
 export function Graph({ currentId, selectedId, onSelect }: Props) {
-  const { nodes, edges } = useMemo(
-    () => buildGraph(currentId, selectedId),
-    [currentId, selectedId],
+  const layout = useMemo(() => computeLayout(), []);
+  const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>(
+    buildNodes(layout, currentId, selectedId),
   );
+  const [edges, setEdges] = useEdgesState(buildEdges(currentId, selectedId));
+
+  // Update node decorations + edges when machine state changes — preserves manual drag positions
+  useEffect(() => {
+    setNodes((curr) => {
+      const fresh = buildNodes(layout, currentId, selectedId);
+      const positions = new Map(curr.map((n) => [n.id, n.position]));
+      return fresh.map((n) => ({
+        ...n,
+        position: positions.get(n.id) ?? n.position,
+      }));
+    });
+    setEdges(buildEdges(currentId, selectedId));
+  }, [layout, currentId, selectedId, setNodes, setEdges]);
 
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       proOptions={{ hideAttribution: true }}
@@ -128,7 +150,7 @@ export function Graph({ currentId, selectedId, onSelect }: Props) {
       minZoom={0.3}
       maxZoom={1.5}
       colorMode="dark"
-      nodesDraggable={false}
+      nodesDraggable={true}
       nodesConnectable={false}
       elementsSelectable={true}
       onNodeClick={(_, node) => onSelect(node.id)}

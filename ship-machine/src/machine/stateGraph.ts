@@ -78,14 +78,7 @@ export const EDGE_DEFS: EdgeDef[] = [
 const NODE_WIDTH = 208;
 const NODE_HEIGHT = 68;
 
-export function buildGraph(
-  currentId: string,
-  selectedId: string | null,
-): { nodes: GraphNode[]; edges: Edge[] } {
-  const reachableFromCurrent = new Set(
-    EDGE_DEFS.filter((e) => e.from === currentId).map((e) => e.to),
-  );
-
+export function computeLayout(): Record<string, { x: number; y: number }> {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
     rankdir: "TB",
@@ -103,25 +96,45 @@ export function buildGraph(
 
   dagre.layout(g);
 
-  const nodes: GraphNode[] = NODE_DEFS.map((def) => {
+  const positions: Record<string, { x: number; y: number }> = {};
+  for (const def of NODE_DEFS) {
     const pos = g.node(def.id);
-    return {
-      id: def.id,
-      type: "shipState",
-      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
-      data: {
-        label: def.label,
-        group: def.group,
-        isCurrent: def.id === currentId,
-        isSelected: def.id === selectedId,
-        isReachable: reachableFromCurrent.has(def.id),
-      },
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+    positions[def.id] = {
+      x: pos.x - NODE_WIDTH / 2,
+      y: pos.y - NODE_HEIGHT / 2,
     };
-  });
+  }
+  return positions;
+}
 
-  const edges: Edge[] = EDGE_DEFS.map((e, i) => {
+export function buildNodes(
+  positions: Record<string, { x: number; y: number }>,
+  currentId: string,
+  selectedId: string | null,
+): GraphNode[] {
+  const reachableFromCurrent = new Set(
+    EDGE_DEFS.filter((e) => e.from === currentId).map((e) => e.to),
+  );
+
+  return NODE_DEFS.map((def) => ({
+    id: def.id,
+    type: "shipState" as const,
+    position: positions[def.id] ?? { x: 0, y: 0 },
+    data: {
+      label: def.label,
+      group: def.group,
+      isCurrent: def.id === currentId,
+      isSelected: def.id === selectedId,
+      isReachable: reachableFromCurrent.has(def.id),
+    },
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
+  }));
+}
+
+export function buildEdges(currentId: string, selectedId: string | null): Edge[] {
+
+  return EDGE_DEFS.map((e, i) => {
     const isFromCurrent = e.from === currentId;
     const isFromSelected = selectedId !== null && e.from === selectedId;
     const isHighlighted = isFromCurrent || isFromSelected;
@@ -129,7 +142,6 @@ export function buildGraph(
       id: `e${i}`,
       source: e.from,
       target: e.to,
-      // labels only on highlighted edges — declutters everything else
       label: isHighlighted ? e.label : undefined,
       type: "smoothstep",
       animated: isFromCurrent,
@@ -163,8 +175,6 @@ export function buildGraph(
       },
     };
   });
-
-  return { nodes, edges };
 }
 
 function edgeColor(kind: EdgeKind, highlighted: boolean) {
