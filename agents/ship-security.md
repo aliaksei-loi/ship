@@ -109,6 +109,7 @@ A-D on:
 - Multiple C grades → `critical`
 - 1 C with no critical findings → `minor`
 - Mostly A/B → `green`
+- **Environment/setup failure** (e.g. `pnpm audit` cannot run because deps aren't installed, or a required tool is missing) where the review could not complete through no fault of the diff → `blocked` (NOT a code verdict). The lead routes `blocked` to the user, never to the fix-loop.
 
 ## Final return — REQUIRED JSON
 
@@ -139,6 +140,7 @@ A-D on:
   ],
   "filesReviewed": 6,
   "summary": "<2-4 sentences>",
+  "verdict": "green | minor | critical | blocked",
   "previousMode": "<from spawn, or null>",
   "currentMode": "<id, e.g. 'sql-injection-search-param'>",
   "lessonConflicts": []

@@ -5,7 +5,7 @@
 // regression OR an intentional rule change whose fixture was not updated.
 
 // --- Trigger lists (SKILL.md Step 4b) ---
-export const SECURITY_FILE_GLOBS = ['*auth*', '*login*', '*session*', '*crypto*', '*token*', '*permission*', '*.env*', 'package.json'];
+export const SECURITY_FILE_GLOBS = ['*auth*', '*login*', '*session*', '*crypto*', '*token*', '*permission*', '*.sql', '*.env*', 'package.json'];
 export const SECURITY_CONTENT = ['dangerouslySetInnerHTML', 'eval('];
 export const SECURITY_KEYWORDS = ['auth', 'login', 'password', 'token', 'secret', 'oauth', 'permission', 'admin', 'payment', 'pii', 'gdpr', 'encryption'];
 export const DESIGN_FILE_EXT = ['.tsx', '.jsx', '.css', '.scss', '.vue', '.svelte'];

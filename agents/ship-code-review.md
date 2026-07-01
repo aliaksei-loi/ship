@@ -114,6 +114,7 @@ A-D scores on:
   ],
   "filesReviewed": 14,
   "summary": "<2-4 sentences>",
+  "verdict": "green | minor | critical",
   "previousMode": "<from spawn, or null>",
   "currentMode": "<short id of THIS critical pattern, for livelock detection>",
   "lessonConflicts": []

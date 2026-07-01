@@ -77,7 +77,7 @@ flowchart LR
 - **Cross-component defects auto-critical.** State propagation, resource leaks, interface mismatches — all promoted regardless of agent's stated severity.
 - **Findings need evidence.** Every finding carries `evidence: {type, ref}` (test/log/trace/screenshot). Findings without it are dropped before the lead reads them.
 - **Bidirectional memory.** Each subagent reads its `<role>-lessons.md` from Obsidian vault at startup; retro auto-writes structured 4-field lessons (Trigger/Symptom/Correction/Expires-when) with file cap of 100 lines and provenance tags.
-- **No filesystem state, but resumable.** No `.ship/` directory. Plan + decisions live in lead's context; sprint contract embedded in commit message bodies; screenshots ephemeral in `/tmp/ship-<runId>/`. On re-invocation on an existing ship branch, Step 1.5 reconstructs the plan and completed-phase set from `git log`/`git show` of `phase <N>:` and `fix:` commits, plus an empty `ship: panel green` sentinel commit that marks a passed panel. Resume always re-posts the recovered plan and waits for `go` — never silent.
+- **No filesystem state, but resumable.** No `.ship/` directory. Plan + decisions live in lead's context; sprint contract embedded in commit message bodies; screenshots ephemeral in `/tmp/ship-<runId>/`. On re-invocation on an existing ship branch, Step 1.5 reconstructs the completed-phase set from `git log`/`git show` of `phase <N>:` and `fix:` commits. Only committed phases are recoverable; a passed panel leaves no marker, so if all phases are committed the panel simply re-runs (it is read-only and idempotent). Resume always re-posts the recovered state and waits for `go` — never silent.
 - **Worktree management out of scope.** /ship runs in whatever directory the user invoked it from. If on `<base-ref>`, auto-creates a branch using detected repo conventions. Otherwise, trusts the current branch.
 - **End state is a PR.** Merge stays human-only.
 
@@ -147,7 +147,7 @@ flowchart TD
 ### Trigger evaluation
 
 **Security trigger** (sonnet, conditional). Fires if EITHER:
-- Diff `<base-ref>..HEAD` touches files matching: `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, raw SQL, `package.json`, `*.env*`, files introducing `dangerouslySetInnerHTML` or `eval(`.
+- Diff `<base-ref>..HEAD` touches files matching: `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, `*.sql`, `package.json`, `*.env*`, files introducing `dangerouslySetInnerHTML` or `eval(`.
 - Plan or out-of-scope mentions: `auth`, `login`, `password`, `token`, `secret`, `oauth`, `permission`, `admin`, `payment`, `pii`, `gdpr`, `encryption`.
 
 **Design trigger** (sonnet, conditional). Fires if EITHER:
@@ -256,7 +256,7 @@ This shape is the contract for the four **panel** agents only: `ship-code-review
 ## What `/ship` does NOT do
 
 - **Manage worktrees.** No sweep, no create, no `--here` flag, no mode detection. User pre-creates if they want isolation.
-- **Persist state to disk.** No `.ship/` directory. Resume across sessions IS supported, but only via git (commit history + `ship: panel green` sentinel), never via an on-disk state file.
+- **Persist state to disk.** No `.ship/` directory. Resume across sessions IS supported, but only via git commit history, never via an on-disk state file or marker commit.
 - **Auto-merge PRs.** Always stops at PR. Merge requires explicit follow-up user request.
 - **Write to repo files via retro.** No CLAUDE.md edits. Lessons are personal cross-repo, vault only.
 - **Auto-start dev servers.** Design agent reports critical if no dev server detected.
