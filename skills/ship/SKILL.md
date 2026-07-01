@@ -2,7 +2,7 @@
 name: ship
 description: End-to-end feature workflow — grill the user on the idea, build a tracer-bullet plan inline, run a phase-by-phase implementer with per-phase test verification, then a gated end-of-run review panel (code-review → security/performance/design parallel), retro lessons to Obsidian, push, and open a PR. Invoke when the user runs `/ship <prompt>` or `/ship` (interactive).
 metadata:
-  version: "2.2.1"
+  version: "2.3.0"
 ---
 
 You are the **lead** for the `/ship` workflow. Your job: take a feature idea (ticket link, issue link, or freeform text) from raw input to a ready-to-review PR. The flow is fixed; do not improvise.
@@ -13,7 +13,13 @@ State lives in your context, not on disk. There is no `.ship/` directory. If you
 
 1. CWD must be a git repo. If not: abort — *"Run /ship from inside the target repo."*
 2. `gh` CLI available. If not: warn but continue — the user will push + open the PR manually.
-3. Default branch resolved: `base-ref=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)` → fallback to `main`.
+3. **Base ref resolved by precedence** (first non-empty wins), then validated + announced:
+   1. inline `base:<branch>` token — **only when it is the first whitespace-delimited word** of the invocation (see Step 1 input form); a `base:` elsewhere is part of the prompt, not an override. Strip the leading token before using the prompt,
+   2. `$SHIP_BASE_REF` (environment variable),
+   3. `git config ship.baseRef` (repo-local; visible across worktrees unless `extensions.worktreeConfig` is enabled),
+   4. `gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null` → else `git symbolic-ref --short refs/remotes/origin/HEAD` (strip `origin/`) → else `main`.
+
+   Lower-precedence sources are ignored (not merged) once a higher one is set. Validate the resolved ref exists (`git rev-parse --verify "<base-ref>"`); abort if not. **Announce** it and its source before any branch/PR action — e.g. *"Base branch: `develop` (source: git config ship.baseRef)."* — so a wrong base is caught before you branch or open a PR. With nothing set, this resolves to the same repo default branch as before (now with an added existence check + announce line). Everything downstream (`base-ref..HEAD` diff scope, resume scan, `gh pr create --base`) uses this single resolved value.
 
 ## Lessons memory (portable)
 
@@ -28,10 +34,11 @@ Cross-run lessons live **outside** the repo, in a personal directory — configu
 **Input form:**
 - `/ship <prompt>` — prompt is a ticket URL, issue URL, or freeform text. Use as-is.
 - `/ship` (no args) — ask the user *"What are we shipping?"* once, take their reply as the prompt.
+- `/ship base:<branch> <prompt>` — an optional `base:<branch>` token, **only when it is the first whitespace-delimited word** of the invocation, pins the base branch for this run (highest precedence in Prerequisites #3). A `base:` appearing anywhere else is part of the prompt, not an override. Strip the leading token before using the remainder as the feature prompt.
 
 **Branch handling:**
 
-Run `git branch --show-current`. If it equals `<base-ref>` (user is on main):
+Run `git branch --show-current`. If it equals `<base-ref>` (user is on the base branch — which, with an override set, is the integration branch, not necessarily main):
 
 1. Detect repo branch convention from `git branch -r --sort=-committerdate | head -30`. Look at common prefixes (`feat/`, `feature/`, `fix/`, `hotfix/`, `chore/`). Pick the dominant one. If no clear pattern, fallback to `ship/`.
 2. Derive a slug from the prompt: kebab-case, ≤4 meaningful words, drop articles (`a/the/of/to/and/for/in/on`) and generic verbs (`add/create/build/implement/make`). Examples:
@@ -39,10 +46,10 @@ Run `git branch --show-current`. If it equals `<base-ref>` (user is on main):
    - `fix the off-by-one in pagination` → `pagination-off-by-one`
 3. Check out: `git checkout -b <prefix>/<slug> "$(git rev-parse <base-ref>)"`. Print *"Created branch `<prefix>/<slug>` off `<base-ref>`."*
 
-If the user is **not** on main (already on a branch, or a branch was passed as an arg): do NOT assume a fresh run. Use the current branch and go to **Step 1.5 — resume detection** before doing anything else. Only if Step 1.5 finds no prior `phase <N>:` commits do you fall through to a normal fresh run on this branch.
+If the current branch is **not** `<base-ref>` (you are on some other branch, or a branch was passed as an arg): do NOT assume a fresh run. Use the current branch and go to **Step 1.5 — resume detection** before doing anything else. Only if Step 1.5 finds no prior `phase <N>:` commits do you fall through to a normal fresh run on this branch.
 
 Dirty working tree:
-- **Fresh start on main** (auto-branch case above): refuse — *"Working tree not clean. Commit, stash, or discard before /ship."*
+- **Fresh start on `<base-ref>`** (auto-branch case above): refuse — *"Working tree not clean. Commit, stash, or discard before /ship."*
 - **On a branch (resume case):** do NOT refuse. An interrupted run can leave uncommitted mid-phase work. Report it (`git status --short`) and hand the choice to Step 1.5.
 
 ## Step 1.5 — resume detection (only when starting on an existing branch)
