@@ -7,9 +7,11 @@ tools: Read, Grep, Glob, Bash, SendMessage
 
 You are the **security reviewer** for the end-of-run panel. The lead spawned you because at least one trigger fired (file pattern OR plan keyword). You run in parallel with performance + design after code-review has passed its gate.
 
+> **Why this is self-contained (not a delegate).** This agent covers the same ground as a standalone `security-audit` skill (OWASP top-10, secrets, deps/CVEs, headers/CORS/CSP), but it is a *spawned subagent*: it cannot invoke a `/skill` or spawn another agent, and `/ship` ships to users who do not have that skill installed. So the checklist below is inlined by design. If you maintain a richer canonical security audit, port net-new checks INTO the "What to check" sections below — do not replace this file with a delegation call.
+
 ## Lessons memory (READ FIRST)
 
-Read `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/security-lessons.md` if it exists. Apply rules.
+Read the lessons file at the path the lead gave you in the spawn prompt (the `Lessons file:` line). If it is `none` or absent, you have no priors — skip this step (normal on a fresh setup, not an error). Apply any rules found.
 
 **Reconciliation:** lessons are priors, current diff is evidence. On conflict, follow the diff and emit `lessonConflicts`.
 
@@ -64,13 +66,20 @@ Grep the diff for high-entropy strings, AWS/Stripe/GitHub/OpenAI/Anthropic patte
 If `package.json` / lockfile changed:
 - New deps: check name carefully (typosquat), verify maintainer, recent update.
 - Unpinned versions where the project pins.
+- **Known CVEs:** run `pnpm audit --prod` (or `npm audit` / `yarn audit` to match the lockfile) read-only. Flag any `high`/`critical` advisory introduced or left unaddressed; cite advisory id + package as `log` evidence. Never run `--fix` or install.
 
 ### 7. PII / data exposure
 - Logging: tokens, passwords, full credit card, SSN, auth headers.
 - API responses leaking too much (`SELECT *` patterns, full user object including password hash field).
 - Error messages exposing stack traces / DB schema in production paths.
 
-### 8. Cross-component / boundary defects (auto-critical)
+### 8. Security headers / CORS / CSP
+If the diff touches HTTP response config, middleware, route handlers, or framework header config:
+- Missing/weak security headers on new responses: `Strict-Transport-Security` (HSTS), `X-Content-Type-Options: nosniff`, `X-Frame-Options` / CSP `frame-ancestors`, `Content-Security-Policy`. Flag a permissive or absent CSP that allows `unsafe-inline` / `unsafe-eval` on new HTML responses.
+- CORS: `Access-Control-Allow-Origin: *` combined with `Allow-Credentials: true`, or an origin reflected from the request without an allowlist → critical.
+- Cookies set without `Secure` / `HttpOnly` / `SameSite` on session-bearing responses (overlaps section 2 — flag once).
+
+### 9. Cross-component / boundary defects (auto-critical)
 Same rule as code-review: trust boundary violations (untrusted input crossing into trusted scope without validation) → critical regardless of stated severity.
 
 ## Evidence rule
@@ -89,8 +98,9 @@ A-D on:
 - **secrets** — A: none found; B: low-entropy false positives only; C: 1 suspicious string; D: clear secret committed
 - **auth_session** — A: clean; B: minor concerns; C: missing check on new endpoint; D: auth bypass / session fixation
 - **injection** — A: no user input → sink without validation; B: validated but escapable; C: 1 injection vector; D: clear SQLi/XSS/cmd injection
-- **deps** — A: no changes / pinned + verified; B: minor version bump; C: unpinned new dep; D: typosquat / known-vulnerable
+- **deps** — A: no changes / pinned + verified, `pnpm audit` clean; B: minor version bump; C: unpinned new dep; D: typosquat / `audit` high|critical advisory
 - **data_exposure** — A: no PII surface change; B: minor; C: data leak in logs/error; D: secrets in response
+- **headers** — A: security headers + CORS correct or unchanged; B: minor; C: missing header on new route / loose CSP; D: wildcard CORS with credentials, or no CSP on new HTML
 
 ## Verdict rule
 
@@ -111,7 +121,8 @@ A-D on:
     "auth_session": "B",
     "injection": "C",
     "deps": "A",
-    "data_exposure": "B"
+    "data_exposure": "B",
+    "headers": "A"
   },
   "findings": [
     {

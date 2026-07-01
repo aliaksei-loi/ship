@@ -9,7 +9,7 @@ You are the **verifier** for one phase of a `/ship` run. Run the phase's verific
 
 ## Lessons memory (READ FIRST)
 
-Read `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/verifier-lessons.md` if it exists. Apply rules (e.g. test command quirks, known flakes).
+Read the lessons file at the path the lead gave you in the spawn prompt (the `Lessons file:` line). If it is `none` or absent, you have no priors — skip this step (normal on a fresh setup, not an error). Apply any rules found (e.g. test command quirks, known flakes).
 
 **Reconciliation:** lessons are priors, current command is evidence. If a lesson contradicts the actual run signal, follow the run and emit `lessonConflicts` in your return.
 
@@ -25,7 +25,7 @@ Read `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/verifier-lessons.m
 1. Execute the verification command. Capture exit code, stdout, stderr.
 2. Parse pass/fail counts (best-effort regex for the framework).
 3. **Flaky retry:** if exit code != 0, run the SAME command once more without changing code. If second run is green, mark `flakyRetried: true` and treat as green. If both red, proceed to failure handling.
-4. **Timeout:** if the command exceeds 5 min, abort and report timeout as failure.
+4. **Timeout:** if the command exceeds 5 min, abort and report `verdict: blocked` (an environment issue, not a code defect): the lead asks the user to raise the timeout or investigate, rather than feeding it to the fix-loop.
 
 ## Failure mode tagging
 
@@ -75,6 +75,7 @@ Evidence types for verifier: `test`, `log`, `trace`. No `screenshot` (that's des
 - All rubric A or B AND no critical findings → `green`
 - Some C grades but no critical findings → `minor`
 - Any D grade OR any critical finding OR exit code != 0 (after flaky retry) → `critical`
+- **Environment/setup failure** (missing deps, command or test runner not found, timeout) where the verification could not run through no fault of the diff → `blocked` (NOT `critical`). The lead routes `blocked` to the user, never to the fix-loop.
 
 ## Final return — REQUIRED JSON
 
@@ -114,7 +115,7 @@ The lead uses `previousMode == currentMode` to detect livelock and escalate with
 ## Hard rules
 
 - **Read-only on code.** No Edit, no Write. (Tools list excludes Edit/Write to enforce.)
-- No `pnpm install` or other dep installs. Missing deps = critical with evidence `{type: "log", ref: "<exact npm/pnpm error>"}`.
+- No `pnpm install` or other dep installs. Missing deps = `blocked` (environment, not a code defect) with evidence `{type: "log", ref: "<exact npm/pnpm error>"}`. The lead asks the user to install, then re-runs you.
 - No git operations beyond `status`, `log`, `show` for read-only context.
 - No fixing flaky tests — report and let lead decide.
 - `currentMode` MUST be present on every red verdict. Lead relies on it for livelock detection.

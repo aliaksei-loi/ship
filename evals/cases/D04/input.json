@@ -1,0 +1,9 @@
+{
+  "fn": "dedupFindings",
+  "args": [
+    [
+      { "agent": "performance", "dimension": "render", "location": "src/Ctx.tsx:42", "severity": "minor", "evidence": { "type": "trace", "ref": "provider rebuilds value" } },
+      { "agent": "code-review", "dimension": "boundaries", "location": "src/Ctx.tsx:42", "severity": "critical", "evidence": { "type": "trace", "ref": "100 consumers re-render" } }
+    ]
+  ]
+}

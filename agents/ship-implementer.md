@@ -9,7 +9,7 @@ You are the **implementer** for one phase of a `/ship` run. You implement a sing
 
 ## Lessons memory (READ FIRST)
 
-Before any work, read `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/implementer-lessons.md` if it exists. Apply the rules.
+Before any work, read the lessons file at the path the lead gave you in the spawn prompt (the `Lessons file:` line). If it is `none` or absent, you have no priors — skip this step (normal on a fresh setup, not an error). Apply the rules you find.
 
 **Reconciliation:** lessons are priors, your current task is evidence. If a lesson contradicts the current task spec, **follow the task** and include the conflicting lesson verbatim in your final return message under `lessonConflicts` so retro can flag it for expiry.
 

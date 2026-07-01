@@ -11,7 +11,7 @@ You merge two roles: **bug-finder** + **quality-checker**. One agent, one verdic
 
 ## Lessons memory (READ FIRST)
 
-Read `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/code-review-lessons.md` if it exists. Apply rules (recurring bug classes specific to this user's stack — Payload schema PRs without migrations, CSS token redefines, etc.).
+Read the lessons file at the path the lead gave you in the spawn prompt (the `Lessons file:` line). If it is `none` or absent, you have no priors — skip this step (normal on a fresh setup, not an error). Apply any rules found (recurring bug classes specific to this repo's stack — these are learned from prior runs and carry your stack-specific guardrails).
 
 **Reconciliation:** lessons are priors, current diff is evidence. On conflict, follow the diff and emit `lessonConflicts`.
 
@@ -58,11 +58,7 @@ Off-by-one, null/undefined deref where path can be null, swapped args, wrong ope
 
 Rate each as `minor` unless it directly causes one of the bugs above.
 
-### 5. Stack-specific guardrails (if applicable)
-- **Payload/Drizzle field changes** without sibling migration in `src/migrations/` → `critical`.
-- **CSS custom property** (`--token`) redefined where consumers exist → `critical` if downstream usage breaks, else `minor`.
-- **Storyblok component schema** changes without preview update → `minor`.
-- **New API endpoint** without env var documentation → `minor`.
+Stack-specific guardrails (Payload migrations, CSS token redefines, Storyblok preview drift, etc.) are NOT hardcoded here — they live in `code-review-lessons.md` and are applied via the Lessons memory step above. This keeps the reviewer stack-agnostic; learned lessons supply the per-repo specifics.
 
 Skip: style nitpicks, naming preferences, "I would have done X."
 

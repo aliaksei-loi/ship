@@ -45,8 +45,8 @@ for stale in reviewer visual-qa; do
   fi
 done
 
-# 7 agent files: ~/.claude/agents/ship-<role>.md → repo/agents/ship-<role>.md
-for role in implementer verifier code-review security performance design retro; do
+# 8 agent files: ~/.claude/agents/ship-<role>.md → repo/agents/ship-<role>.md
+for role in implementer verifier code-review security performance design debugger retro; do
   AGENT_LIVE="$HOME/.claude/agents/ship-$role.md"
   AGENT_SRC="$REPO/agents/ship-$role.md"
   if [ ! -f "$AGENT_SRC" ]; then
@@ -72,8 +72,8 @@ echo "  1. Start a new Claude Code session (agent definitions are session-cached
 echo "  2. Verify: /ship --help (or just type /ship and let the harness suggest the skill)."
 echo "  3. Optional: ensure 'gh' CLI is authenticated (gh auth status)."
 echo
-echo "Lessons will accumulate at:"
-echo "  ~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship/<role>-lessons.md"
+echo "Cross-run lessons are OPTIONAL and configured in ONE place:"
+echo "  $REPO/skills/ship/SKILL.md  →  the LESSONS_ROOT value (see 'Lessons memory (portable)')."
 echo
-echo "If you don't use Obsidian or want a different lessons dir, edit the path"
-echo "in $REPO/agents/ship-retro.md and the corresponding spawn prompts in SKILL.md."
+echo "Default is the maintainer's Obsidian dir. Set LESSONS_ROOT to your own"
+echo "directory, or leave it empty to run /ship without lessons (no priors)."

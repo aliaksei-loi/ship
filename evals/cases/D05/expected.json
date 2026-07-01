@@ -1,0 +1,4 @@
+[
+  { "dimension": "render", "location": "a.ts:1", "severity": "minor", "evidence": [{ "type": "trace", "ref": "x" }] },
+  { "dimension": "render", "location": "b.ts:2", "severity": "minor", "evidence": [{ "type": "trace", "ref": "y" }] }
+]

@@ -1,0 +1,1 @@
+{ "fn": "evaluateTriggers", "args": [{ "changedFiles": ["src/components/Button.tsx"], "introducedLines": [] }, "polish the primary button styling"] }

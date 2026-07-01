@@ -1,0 +1,12 @@
+[
+  {
+    "agent": "performance",
+    "dimension": "boundaries",
+    "location": "src/Ctx.tsx:42",
+    "severity": "critical",
+    "evidence": [
+      { "type": "trace", "ref": "provider rebuilds value" },
+      { "type": "trace", "ref": "100 consumers re-render" }
+    ]
+  }
+]

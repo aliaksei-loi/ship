@@ -4,6 +4,41 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-07-01
+
+Feature wave from the /ship self-audit remediation: resume, auto-debug, portable lessons, doc-grounded planning, correction mining, and an eval harness. New agent: `ship-debugger`.
+
+### Added
+- **Resume-after-interruption.** Re-invoking `/ship` on an existing ship branch reconstructs the plan + completed-phase set from git history (`phase <N>:` / `fix:` commits plus an empty `ship: panel green` sentinel commit) and resumes at the right point, after re-posting the recovered plan for a `go`. No on-disk state — recovery is git-only. (`SKILL.md` Step 1.5, `ARCHITECTURE.md`)
+- **Auto-debug pass + `ship-debugger` agent (sonnet).** When the per-phase or panel fix-loop is exhausted (same failure mode twice, or cap-2 hit), a one-shot debugger runs the diagnose discipline before escalating to the user — instead of another blind respawn. Fires at most once per phase / once per run; returns `blocked` with ranked hypotheses if it cannot build a reproduction loop.
+- **Eval harness (`evals/`).** Regression guard for the workflow itself: Class D (scriptable pure-rule assertions via `node evals/lib/run-d.mjs`, 6 cases green), Class J (per-agent JSON conformance vs `expected.json`), Class T (golden-transcript checklists). ~20-case index; 3 sample cases authored to clone. This is the first executable code in the repo (a small Node runner + `ship_rules.mjs` reference logic).
+- **User-correction mining in retro.** The lead captures the user's overrides/redirects during the run and forwards them to `ship-retro` as highest-priority "Mistakes" lessons (retro is a haiku subagent and cannot see the transcript). Retro also returns a run-scoped `whatDidntWork` summary, surfaced in the handoff (not persisted).
+
+### Changed
+- **Planner is now `grill-with-docs`** (falls back to `grill-me` if unavailable). It grounds the plan in the repo's domain model and sharpens terminology; any `CONTEXT.md`/ADR update it proposes is folded into a phase commit, never written to the working tree inline (preserves the "only phase commits touch the repo" invariant).
+- **Portable lessons path.** The hardcoded `~/Documents/AL Obsidian/...` path is gone from all 8 agent/install files. The lead injects a single configurable `LESSONS_ROOT` at each spawn, and `no root = no priors` (never an error). Set it once in `SKILL.md`.
+- **Verifier carved out of the shared reviewer contract** (`ARCHITECTURE.md`): it is a test-runner with its own schema, not a review-panel agent, so it is documented separately.
+- **Provenance notes** on `ship-security` / `ship-design` and Step 6 explaining why they stay self-contained (spawned subagents cannot invoke skills; the canonical `security-audit` / `mobile-check` / github tools are not bundled) rather than delegating.
+
+## [2.1.0] — 2026-06-27
+
+Maintenance pass: token economy, ecosystem fit, and de-scoping. No change to the workflow shape.
+
+### Changed
+- **`ship-performance` model `opus` → `sonnet`.** The always-on perf review no longer pays opus on every run; coverage is unchanged. (The implementer stays opus.)
+- **`ship-security` coverage broadened** to match the standalone security agent: added `pnpm audit` (CVE scan), security headers (HSTS, X-Content-Type-Options, X-Frame-Options, CSP) and CORS/credentials checks, plus a `headers` rubric dimension.
+- **Stack-specific guardrails moved out of `ship-code-review`** (Payload migrations, CSS token redefines, Storyblok preview, API env docs). The reviewer is now stack-agnostic; these live as learned entries in `code-review-lessons.md`, seeded from the old static block.
+
+### Removed
+- **`ship-machine` visualiser + telemetry.** Deleted the `ship-machine/` Next.js app and the ~40-line Telemetry section from `SKILL.md`. It was optional plumbing, not needed to run the skill, and it bloated the always-loaded orchestrator prompt.
+- **Orphaned v1 lesson files** (`reviewer-lessons.md`, `visual-qa-lessons.md`): dead memory for agents retired in v2.
+
+### Fixed
+- **Panel finding dedup never fired across agents.** The dedup key was `(rubric_dimension, location_hash)`, but the four panel agents share no rubric-dimension vocabulary, so two agents flagging the same line carried different dimensions and were never merged (the same defect entered the fix-loop twice). Dedup now keys on `location_hash` alone and merges evidence from both. (`SKILL.md`, `ARCHITECTURE.md`)
+- **Environment failures no longer poison the fix-loop.** New `blocked` verdict (no dev server, no browser MCP, missing deps, verification timeout) routes to the user with a concrete setup action instead of respawning the implementer to "fix" something it cannot. (`ship-verifier`, `ship-design`, `SKILL.md`, `ARCHITECTURE.md`)
+- **`lessonConflicts` now reach retro.** Step 5 explicitly aggregates every agent's `lessonConflicts` and forwards them, so stale lessons actually get expired (previously the spawn spec omitted this and expiry never fired). (`SKILL.md`)
+- **Retro lessons surfaced for audit + deterministic prune.** `ship-retro` returns the verbatim Trigger/Correction of every lesson written or expired and the handoff lists them, so the ungated auto-write is at least visible. Prune/expiry given a deterministic tag-parse + rewrite recipe. (`ship-retro`, `SKILL.md`)
+
 ## [2.0.0] — 2026-05-02
 
 Full pipeline redesign. Breaking — agents renamed, `.ship/` directory removed, plan-approval gate replaced by inline `go`.
