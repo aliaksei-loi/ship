@@ -126,6 +126,7 @@ A-D on:
   ],
   "filesReviewed": 14,
   "summary": "<2-4 sentences>",
+  "verdict": "green | minor | critical",
   "previousMode": "<from spawn, or null>",
   "currentMode": "<id, e.g. 'context-value-thrash'>",
   "lessonConflicts": []

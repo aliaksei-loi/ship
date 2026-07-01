@@ -2,7 +2,7 @@
 name: ship
 description: End-to-end feature workflow — grill the user on the idea, build a tracer-bullet plan inline, run a phase-by-phase implementer with per-phase test verification, then a gated end-of-run review panel (code-review → security/performance/design parallel), retro lessons to Obsidian, push, and open a PR. Invoke when the user runs `/ship <prompt>` or `/ship` (interactive).
 metadata:
-  version: "2.2.0"
+  version: "2.2.1"
 ---
 
 You are the **lead** for the `/ship` workflow. Your job: take a feature idea (ticket link, issue link, or freeform text) from raw input to a ready-to-review PR. The flow is fixed; do not improvise.
@@ -67,9 +67,9 @@ State: <...>
 
 Build the completed-phase set = `{ N : (title, triplet, sha) }`. If two commits share the same N (a phase re-committed — should not happen, since fix-loops use `fix:` subjects, but guard anyway) keep the latest by log order and note it.
 
-**3. Classify fix commits.** Subjects matching `^fix: phase (\d+) verifier — `, `^fix: panel review — `, `^fix: phase (\d+) debug — `, or `^fix: panel debug — ` are forward-only fix-loop commits, NOT phases (the literal separator is an em-dash — match it verbatim). They do not add to the phase set; a phase with a trailing `fix:` commit is still "done" for resume. A `fix: panel …` commit is evidence the panel already ran at least once.
+**3. Classify non-phase commits.** Subjects matching `^fix: phase (\d+) verifier — `, `^fix: panel review — `, `^fix: phase (\d+) debug — `, or `^fix: panel debug — ` are forward-only fix-loop commits (the literal separator is an em-dash — match it verbatim); a `^docs: ` subject is the grill-with-docs planning-capture commit (Step 2). NONE of these are phases — they do not add to the phase set. A phase with a trailing `fix:` commit is still "done" for resume, and a `fix: panel …` commit is evidence the panel already ran at least once.
 
-**4. Detect panel completion.** A clean panel (green/minor) leaves no git trace by itself, so check for the panel sentinel commit (see Step 4c): subject `^ship: panel green`. If present → the panel already passed; the only remaining work is Step 5→7 (retro/push/PR), UNLESS a PR already exists (`gh pr view --json url 2>/dev/null`), in which case report the URL and stop (run was fully complete).
+**4. Detect a completed run.** A clean panel leaves no git trace, so there is no "panel passed" marker to look for. Instead check whether the run already finished: if a PR exists for this branch (`gh pr view --json url 2>/dev/null`), report the URL and stop — the run was complete. Otherwise, if every phase is committed but there's no PR (point 7), the panel just re-runs on resume; it is read-only and idempotent, so re-running a panel that previously passed simply re-confirms green.
 
 **5. Present the recovered state and get an explicit gate.** Never resume silently. Post:
 
@@ -84,7 +84,7 @@ Recovered from git:
 ### Phase <K> — (no commit found) ← resume here
 
 Fix-loop commits found: <list of `fix:` shas, or none>
-Panel: <"passed (ship: panel green <sha>)" | "never run">
+Panel: <"all phases committed — panel will (re-)run on go" | "phases still remaining">
 Uncommitted changes: <git status --short output, or "none">
 
 Reply "go" to resume from Phase <K> (or from panel/PR), "replan" to rewrite the remaining plan, or tell me what to change.
@@ -95,19 +95,18 @@ Reply "go" to resume from Phase <K> (or from panel/PR), "replan" to rewrite the 
 - **User changed the plan ("replan"):** run Step 2 (grill+plan) but seed the griller with the recovered triplets as context so it only re-plans the *remaining/changed* phases. Committed phases are immutable history; the new plan's phase numbering MUST continue from the highest committed N+1 (do not renumber committed phases). Re-post the full plan (committed + new) and wait for `go`.
 - **A committed phase's body is unparseable** (missing a triplet line, e.g. a hand-made commit): treat it as recovered-but-incomplete-contract. Show what was parsed, and ask the user to confirm the Verification command before it can be re-verified. Do not fabricate a triplet.
 
-**7. Set the resume entry point** (used to jump into the existing loop):
-- Some phases missing commits → resume at Step 3, first phase index with no phase commit. The reconstructed plan (committed + remaining) becomes the in-context plan for the rest of the run, exactly as if Step 2 had just produced it.
-- All planned phases committed, no `ship: panel green` sentinel → jump to Step 4 (panel).
-- `ship: panel green` present, no PR → jump to Step 5 (retro).
+**7. Set the resume entry point** (used to jump into the existing loop). Git only records COMMITTED phases; it cannot know how many phases were originally planned or what the uncommitted tail was. So resume can rebuild phases 1..K (committed) but not phase K+1 onward:
+- **Mid-plan interruption** (more phases were planned after K): the user restates the remaining phases — inline after your point-5 recap, or via `replan` (point 6). Committed phases 1..K stay immutable; new phases continue numbering from K+1. Resume the loop at the first phase with no commit.
+- **All work committed** (K was the last phase) and no PR yet → jump to Step 4 and run the panel (idempotent; re-confirms green if it already passed).
 - PR exists → report and stop.
 
 Once the user replies `go`, proceed to the resolved entry point. The committed-phase set, reconstructed plan, and out-of-scope list now live in your context for the rest of the run.
 
 ## Step 2 — grill + plan (single inline phase)
 
-**Pick the griller.** `/ship` is a coding workflow, so prefer `grill-with-docs` — it challenges the plan against the repo's existing domain model and sharpens terminology, which yields tracer-bullet phases that cut along real seams. Invoke `Skill(skill: "grill-with-docs", args: <prompt>)`. Fall back to `Skill(skill: "grill-me", args: <prompt>)` if `grill-with-docs` is not installed or errors — it is not bundled with `/ship`. Let the chosen skill run the Socratic interview to convergence.
+**Pick the griller.** `/ship` is a coding workflow, so prefer `grill-with-docs` — it challenges the plan against the repo's existing domain model and sharpens terminology, which yields tracer-bullet phases that cut along real seams. Invoke `Skill(skill: "grill-with-docs", args: <prompt>)`. Fall back to `Skill(skill: "grill-me", args: <prompt>)` if `grill-with-docs` is not installed or errors — it is not bundled with `/ship`. If NEITHER skill is installed, run the Socratic interview yourself inline (they are conveniences, not hard dependencies): ask the clarifying questions, converge on scope, then produce the plan. Let the chosen path run to convergence.
 
-**Do NOT let the griller write to the repo mid-run.** `grill-with-docs` normally updates `CONTEXT.md` / ADRs *inline as decisions crystallize* (and may create them if absent). That would leave uncommitted edits in the working tree before any phase commit, breaking `/ship`'s invariant that the only repo writes are phase commits (and confusing the Step 1 dirty-tree check + Step 1.5 resume detection). So capture any `CONTEXT.md`/ADR change it proposes and fold it into the plan as an explicit phase (a `docs:`-style phase that commits the doc change through the normal phase → verify rails). Nothing is written to the working tree during Step 2.
+**Commit grill-with-docs' file writes cleanly (don't fight them).** `grill-with-docs` updates `CONTEXT.md` / ADRs *inline as decisions crystallize* (and may create them), and it runs in your own context — you cannot stop it writing to the working tree. That is expected; do not try to suppress it. Instead, once the plan is approved (`go`), commit those doc changes as a single `docs: capture domain decisions from planning` commit BEFORE Step 3 phase 1. This restores a clean tree before the first phase and keeps the docs out of any phase commit. It is NOT a `phase <N>:` commit, so Step 1.5 resume ignores it. (Plain `grill-me` and the inline fallback write nothing, so this is a no-op for them.)
 
 **Important** — the griller produces a freeform plan or summary. After it concludes, **you** (lead) transform that output into ship's required structure:
 
@@ -217,7 +216,7 @@ Verifier runs the command, returns JSON:
   "findings": [
     { "severity": "minor", "location": "src/foo.test.ts:42", "summary": "...", "evidence": { "type": "test", "ref": "test name + first 5 lines of failure" } }
   ],
-  "verdict": "green | minor | critical",
+  "verdict": "green | minor | critical | blocked",
   "previousMode": "<verbatim mode string verifier emitted last time, or null>",
   "currentMode": "<short string identifying THIS failure shape>"
 }
@@ -313,7 +312,7 @@ If `verdict == "green"` or `"minor"` → continue to 4b.
 Evaluate triggers:
 
 - **Security trigger** — fires if EITHER:
-  - Diff `<base-ref>..HEAD` touches files matching: `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, raw SQL, `package.json` (deps changed), `*.env*`, files containing `dangerouslySetInnerHTML` or `eval(` introduced.
+  - Diff `<base-ref>..HEAD` touches files matching: `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, `*.sql`, `package.json` (deps changed), `*.env*`, files containing `dangerouslySetInnerHTML` or `eval(` introduced.
   - Plan or out-of-scope mentions: `auth`, `login`, `password`, `token`, `secret`, `oauth`, `permission`, `admin`, `payment`, `pii`, `gdpr`, `encryption`.
 - **Design trigger** — fires if EITHER:
   - Diff touches: `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.module.*`, `*.vue`, `*.svelte`.
@@ -351,17 +350,8 @@ Collect all returned JSONs. **Deduplicate** findings across agents by `location_
 
 Aggregate verdicts from 4a (code-review) + 4b (panel). Worst CODE verdict wins; a `blocked` verdict is handled separately (below) and does not roll up.
 
-- `blocked` (realistically only design: no dev server / no browser MCP) → do NOT respawn the implementer and do NOT consume panel retry budget. Surface the setup action to the user (e.g. *"start the dev server with `pnpm dev`, then I'll re-run the design reviewer"*), re-run only the blocked agent once resolved, and keep the other agents' verdicts.
-- `green` / `minor` → record the panel-completion sentinel, then proceed to Step 5:
-
-```bash
-git commit --allow-empty -m "ship: panel green (<N> phases)" -m "code-review: <verdict>
-security: <verdict | skipped>
-performance: <verdict>
-design: <verdict | skipped>"
-```
-
-  This is the resume marker for "panel already passed" (Step 1.5 point 4). It is a git commit, not a `.ship/` file — no on-disk state is introduced.
+- `blocked` (design: no dev server / no browser MCP; or security: `pnpm audit` can't run because deps aren't installed) → do NOT respawn the implementer and do NOT consume panel retry budget. Surface the setup action to the user (e.g. *"start the dev server with `pnpm dev`"*, or *"run `pnpm install` so audit can run"*), re-run only the blocked agent once resolved, and keep the other agents' verdicts.
+- `green` / `minor` → proceed to Step 5. No marker commit is written: a passed panel leaves no git trace, and if the run is interrupted after this point, resume simply re-runs the panel over the same diff (it is read-only and idempotent, so a re-run re-confirms green).
 - `critical` → respawn `ship-implementer` with consolidated criticals:
 
 ```
@@ -513,16 +503,14 @@ Stop. Do not merge. Do not delete the branch. Do not switch branches.
 - One commit per phase (subject `phase <N>: <title>`); commit body embeds the triplet sprint contract.
 - Fix-loop commits are forward-only (`fix: <topic>`); never amend or rebase.
 - Each phase implementer is a **fresh** subagent — never persist implementer state across phases.
-- Same-defect detector overrides the retry counter — an identical failure mode short-circuits the blind respawn loop into the one-shot auto-debug pass (below), then escalates to the user if still red. Budget is never burned on a repeat.
-- Auto-debug pass fires at most ONCE per phase (per-phase `debugAttempted`) and ONCE per run for the panel (`panelDebugAttempted`). It is separate from the respawn caps, not a 3rd respawn. It runs only when the blind respawn loop is exhausted (same-defect tripped or cap-2 hit), and always PRECEDES user escalation.
-- `ship-debugger` may build throwaway harnesses, add tagged instrumentation, and commit a forward-only `fix: phase <N> debug — <topic>` / `fix: panel debug — <topic>`. If it cannot build a reproduction loop it returns `blocked` (never guess-fixes); the lead then escalates to the user with its ranked hypotheses.
+- Same-defect detector overrides the retry counter: an identical failure mode skips further blind respawns and goes straight to the one-shot auto-debug pass, then user escalation if still red. No budget burned on a repeat.
+- Auto-debug (`ship-debugger`) fires at most once per phase (`debugAttempted`) and once per run for the panel (`panelDebugAttempted`), only after the respawn loop is exhausted, always before user escalation. It commits a forward-only `fix: … debug — <topic>`, or returns `blocked` if it can't build a repro loop. (Full behavior in Step 3c/4c.)
 - A `blocked` verdict (environment/setup failure: no dev server, no browser MCP, missing deps, verification timeout) never enters a fix-loop and never consumes retry budget; it escalates to the user with a concrete setup action, then the blocked agent re-runs.
 - Forward the aggregated `lessonConflicts` (from every agent return) to `ship-retro`; expiry of stale lessons depends on it.
 - Cross-component / boundary defects auto-promote to critical regardless of agent's stated severity.
 - Findings without `evidence` are dropped before any fix-loop decision.
-- No `.ship/` filesystem state. Sprint contract recoverable via `git show` of phase commits; full run state (completed phases, plan, panel status) recoverable from `git log` + the `ship: panel green` sentinel.
-- Resume is git-only. On re-invocation on an existing ship branch, reconstruct via Step 1.5 — never persist a resume file, never silently resume (always re-post the recovered plan and wait for `go`).
-- The panel-green sentinel is an empty commit `ship: panel green (<N> phases)`; it is the sole signal that a clean panel ran, since a passing panel produces no other commit.
+- No `.ship/` filesystem state. Sprint contract recoverable via `git show` of phase commits; completed phases recoverable from `git log`. Only committed phases are recoverable — the uncommitted plan tail is not, so resume relies on the user to restate remaining phases.
+- Resume is git-only. On re-invocation on an existing ship branch, reconstruct via Step 1.5 — never persist a resume file, never silently resume (always re-post recovered state and wait for `go`). A passed panel leaves no marker; resume re-runs the idempotent panel rather than writing a sentinel commit.
 - Committed phases are immutable on resume — a re-plan continues numbering from highest committed N+1, never renumbers or rewrites committed phases.
 - Screenshots (design agent) live in ephemeral `/tmp/ship-<unix-timestamp>/` — agent cleans on completion.
 

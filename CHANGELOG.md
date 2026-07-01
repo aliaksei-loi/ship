@@ -4,6 +4,23 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] — 2026-07-01
+
+Coherence + trim pass from an adversarial self-review of v2.2.0.
+
+### Fixed
+- **Panel agents now emit `verdict`.** `ship-code-review`, `ship-security`, and `ship-performance` omitted the `verdict` field from their required return JSON, yet the lead gates the panel on it — a latent bug since v2.0. Added the field.
+- **`blocked` verdict fully wired.** Added `blocked` to the verifier's return enum (Step 3b) and gave `ship-security` a `blocked` path for environment failures (e.g. `pnpm audit` when deps aren't installed), which previously mis-routed into a code verdict. Step 4c now handles panel `blocked` from design OR security.
+- **Resume no longer overclaims.** Step 1.5 dropped the "reconstructed plan (committed + remaining)" wording — git can only recover committed phases, so resume relies on the user to restate any remaining plan tail.
+- **Trigger/eval drift.** `raw SQL` (not a valid file glob) replaced with `*.sql` in the security trigger, and added to `evals/lib/ship_rules.mjs` so the D-suite actually guards it.
+
+### Removed
+- **The `ship: panel green` sentinel commit.** It leaked an empty commit into every PR. Resume now re-runs the idempotent (read-only) panel when all phases are committed, instead of reading a marker commit.
+
+### Changed
+- **grill-with-docs writes are committed, not suppressed.** grill-with-docs runs in the lead's own context and writes `CONTEXT.md`/ADRs inline; the previous "do not let it write" instruction was unenforceable. `/ship` now commits those doc changes as a `docs:` commit before phase 1 (clean tree, not swept into a phase). Added a both-missing griller fallback (lead runs the interview inline) so the README's fallback claim holds.
+- **Trimmed the Hard-rules section** — compressed the auto-debug / same-defect restatements that duplicated the step bodies.
+
 ## [2.2.0] — 2026-07-01
 
 Feature wave from the /ship self-audit remediation: resume, auto-debug, portable lessons, doc-grounded planning, correction mining, and an eval harness. New agent: `ship-debugger`.

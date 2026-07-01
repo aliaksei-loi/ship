@@ -58,7 +58,7 @@ flowchart LR
 
 **Each agent reads its own `<role>-lessons.md` on startup** from a lessons root the lead injects (a configurable `LESSONS_ROOT`, or none for no priors), applies the rules, and reports any `lessonConflicts` for retro to flag for expiry. Retro auto-writes structured 4-field lessons (Trigger / Symptom / Correction / Expires-when) with a 100-line cap per file; user corrections captured by the lead during the run become highest-priority Mistakes lessons, and retro also returns a run-scoped what-didn't-work summary for the handoff.
 
-**No filesystem state, but resumable.** No `.ship/` directory. Sprint contracts (the per-phase Behavior / Verification / State triplet) live in commit message bodies, recoverable via `git show`. Re-invoke `/ship` on an interrupted ship branch and it reconstructs the plan and completed phases from git history (a `ship: panel green` empty commit marks a passed panel), re-posts the recovered plan, and resumes on `go`. Screenshots are ephemeral in `/tmp/ship-<runId>/`.
+**No filesystem state, but resumable.** No `.ship/` directory. Sprint contracts (the per-phase Behavior / Verification / State triplet) live in commit message bodies, recoverable via `git show`. Re-invoke `/ship` on an interrupted ship branch and it reconstructs the completed phases from git history, re-posts the recovered state, and resumes on `go` (a passed panel leaves no marker — it just re-runs, idempotently). Screenshots are ephemeral in `/tmp/ship-<runId>/`.
 
 ## What changed in v2 (vs v1)
 
