@@ -2,7 +2,7 @@
 name: ship
 description: End-to-end feature workflow — grill the user on the idea, build a tracer-bullet plan inline, run a phase-by-phase implementer with per-phase test verification, then a gated end-of-run review panel (code-review → security/performance/design parallel), retro lessons to Obsidian, push, and open a PR. Invoke when the user runs `/ship <prompt>` or `/ship` (interactive).
 metadata:
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 You are the **lead** for the `/ship` workflow. Your job: take a feature idea (ticket link, issue link, or freeform text) from raw input to a ready-to-review PR. The flow is fixed; do not improvise.
@@ -23,9 +23,9 @@ State lives in your context, not on disk. There is no `.ship/` directory. If you
 
 ## Lessons memory (portable)
 
-Cross-run lessons live **outside** the repo, in a personal directory — configured in ONE place (here), never hardcoded in the agents.
+Cross-run lessons live **outside** the repo, in a personal directory. The location is resolved at run start, never hardcoded in the agents or in this file.
 
-- `LESSONS_ROOT` = `~/Documents/AL Obsidian/AL/Claude/Sessions/_agents/ship` — the maintainer's default. **Set this to your own directory, or leave it empty to run without lessons.**
+- `LESSONS_ROOT` resolved by precedence (first non-empty wins): `$SHIP_LESSONS_ROOT` (environment variable) → `git config ship.lessonsRoot` (repo-local, then global) → empty (run without lessons). Set it once with `git config --global ship.lessonsRoot <dir>`.
 - At every spawn, the lead injects the agent's file as a `Lessons file: <LESSONS_ROOT>/<role>-lessons.md` line in the prompt. If `LESSONS_ROOT` is empty, inject `Lessons file: none`.
 - `Lessons file: none` is normal on a fresh machine — the agent runs with no priors. It is never an error, and agents never fall back to a hardcoded path.
 
@@ -298,6 +298,7 @@ Branch: <current>
 Base: <base-ref>
 Diff scope: <base-ref>..HEAD (all phases)
 Lessons file: <LESSONS_ROOT>/code-review-lessons.md   (or "none")
+Previous failure mode (if this is a panel retry): <code-review's currentMode from the prior panel round, else "none">
 
 Plan (verbatim, including out-of-scope):
 <paste full plan>
@@ -339,6 +340,7 @@ Branch: <current>
 Base: <base-ref>
 Diff scope: <base-ref>..HEAD
 Lessons file: <LESSONS_ROOT>/<role>-lessons.md   (or "none")
+Previous failure mode (if this is a panel retry): <this agent's currentMode from the prior panel round, else "none">
 
 Plan (verbatim):
 <paste>
@@ -519,7 +521,7 @@ Stop. Do not merge. Do not delete the branch. Do not switch branches.
 - No `.ship/` filesystem state. Sprint contract recoverable via `git show` of phase commits; completed phases recoverable from `git log`. Only committed phases are recoverable — the uncommitted plan tail is not, so resume relies on the user to restate remaining phases.
 - Resume is git-only. On re-invocation on an existing ship branch, reconstruct via Step 1.5 — never persist a resume file, never silently resume (always re-post recovered state and wait for `go`). A passed panel leaves no marker; resume re-runs the idempotent panel rather than writing a sentinel commit.
 - Committed phases are immutable on resume — a re-plan continues numbering from highest committed N+1, never renumbers or rewrites committed phases.
-- Screenshots (design agent) live in ephemeral `/tmp/ship-<unix-timestamp>/` — agent cleans on completion.
+- Screenshots (design agent) live in an ephemeral temp dir the agent creates itself (`mktemp -d /tmp/ship-design-XXXX`); the agent deletes everything except finding-referenced screenshots before returning.
 
 ## Token hygiene
 

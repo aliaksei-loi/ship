@@ -4,6 +4,36 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-07-08
+
+Remediation of a 60-agent external audit (5 review dimensions, adversarial verification). No workflow-shape change.
+
+### Added
+- **`LICENSE` file** with the full MIT text. The README claimed MIT but shipped no license file, so GitHub reported the repo as unlicensed.
+- **Six new Class D eval cases (D07-D12)** covering the three previously untested rule functions: `capOk` (100-line lessons cap, inclusive boundary), `retryUnderCap` (cap-2 arithmetic), `sameDefect` (livelock detector, including the no-prior-mode negative). Class D is now 12/12.
+
+### Fixed
+- **Panel same-defect detector was dead wiring.** The 4a/4b spawn templates never passed a previous failure mode, so panel agents could only ever emit `previousMode: null` and the Step 4c livelock detector could never fire (runs degraded to the cap-2 backstop). Both templates now carry a `Previous failure mode` line, mirroring the verifier's 3b template.
+- **`ship-design` now emits `verdict`.** Its REQUIRED return JSON omitted the top-level `verdict` field the lead's panel gate aggregates on (the other three panel agents got this fix in v2.2.1; design was missed).
+- **Design screenshot dir contract was unsatisfiable.** The agent required a `Run ID` input the lead's spawn template never provided, and SKILL.md/agent disagreed on who deletes the dir. The agent now creates its own temp dir (`mktemp -d /tmp/ship-design-XXXX`) and owns cleanup: everything except finding-referenced screenshots is deleted before returning.
+- **`mkfixture.sh` no longer hides missing fixtures.** `cp ... || true` silently "succeeded" into an empty repo for J/T cases whose base/head trees were never authored; it now exits with an error naming the missing trees.
+
+### Changed
+- **`LESSONS_ROOT` personal default removed.** The published skill hardcoded the maintainer's private Obsidian path as the default lessons root (a wrong default and a path leak for every downstream install). It is now resolved by precedence: `$SHIP_LESSONS_ROOT` → `git config ship.lessonsRoot` (local, then global) → empty (no lessons). Set once with `git config --global ship.lessonsRoot <dir>`.
+
+### Docs
+- Retroactive **2.3.0 changelog entry** (the base-ref override shipped undocumented).
+- README: documented the `/ship base:<branch>` invocation form and the `SHIP_BASE_REF` / `ship.baseRef` pins.
+- ARCHITECTURE: removed the stale "does NOT override the PR base branch" claim (contradicted the shipped v2.3.0 feature) and added the base-ref resolution to Key properties; eval-invariant table extended with D07-D12; honest-coverage note updated (J/T fixtures are specs, not yet materialized).
+- Git tags introduced: shipped versions are now tagged (`v2.3.0`, `v2.4.0`).
+
+## [2.3.0] - 2026-07-01
+
+Shipped as commit `8d3d051`; this entry was written retroactively in 2.4.0.
+
+### Added
+- **General base-ref override.** The PR base branch is resolved by precedence: inline `base:<branch>` token (first whitespace-delimited word of the invocation), `$SHIP_BASE_REF`, `git config ship.baseRef`, repo default branch. The resolved ref is validated (`git rev-parse --verify`) and announced with its source before any branch/PR action; diff scope, resume scan, and `gh pr create --base` all consume the single resolved value.
+
 ## [2.2.1] — 2026-07-01
 
 Coherence + trim pass from an adversarial self-review of v2.2.0.

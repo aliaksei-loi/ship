@@ -77,8 +77,9 @@ flowchart LR
 - **Cross-component defects auto-critical.** State propagation, resource leaks, interface mismatches — all promoted regardless of agent's stated severity.
 - **Findings need evidence.** Every finding carries `evidence: {type, ref}` (test/log/trace/screenshot). Findings without it are dropped before the lead reads them.
 - **Bidirectional memory.** Each subagent reads its `<role>-lessons.md` from Obsidian vault at startup; retro auto-writes structured 4-field lessons (Trigger/Symptom/Correction/Expires-when) with file cap of 100 lines and provenance tags.
-- **No filesystem state, but resumable.** No `.ship/` directory. Plan + decisions live in lead's context; sprint contract embedded in commit message bodies; screenshots ephemeral in `/tmp/ship-<runId>/`. On re-invocation on an existing ship branch, Step 1.5 reconstructs the completed-phase set from `git log`/`git show` of `phase <N>:` and `fix:` commits. Only committed phases are recoverable; a passed panel leaves no marker, so if all phases are committed the panel simply re-runs (it is read-only and idempotent). Resume always re-posts the recovered state and waits for `go` — never silent.
+- **No filesystem state, but resumable.** No `.ship/` directory. Plan + decisions live in lead's context; sprint contract embedded in commit message bodies; screenshots ephemeral in a temp dir the design agent creates and cleans itself. On re-invocation on an existing ship branch, Step 1.5 reconstructs the completed-phase set from `git log`/`git show` of `phase <N>:` and `fix:` commits. Only committed phases are recoverable; a passed panel leaves no marker, so if all phases are committed the panel simply re-runs (it is read-only and idempotent). Resume always re-posts the recovered state and waits for `go` — never silent.
 - **Worktree management out of scope.** /ship runs in whatever directory the user invoked it from. If on `<base-ref>`, auto-creates a branch using detected repo conventions. Otherwise, trusts the current branch.
+- **Configurable base ref (v2.3).** Resolution precedence: inline `base:<branch>` token (first word of the invocation), `$SHIP_BASE_REF`, `git config ship.baseRef`, repo default branch. The resolved ref is validated (`git rev-parse --verify`) and announced before any branch/PR action; diff scope, resume scan, and `gh pr create --base` all use this single value.
 - **End state is a PR.** Merge stays human-only.
 
 ---
@@ -183,7 +184,7 @@ flowchart LR
     Lead --> Des[ship-design<br/>sonnet  ·  cond]
     Lead --> Retro[ship-retro<br/>haiku]
 
-    subgraph Vault[Obsidian vault — Sessions/_agents/ship/]
+    subgraph Vault["LESSONS_ROOT (personal lessons dir, e.g. Obsidian vault)"]
         IL[(implementer-lessons.md)]
         VL[(verifier-lessons.md)]
         CRL[(code-review-lessons.md)]
@@ -261,7 +262,6 @@ This shape is the contract for the four **panel** agents only: `ship-code-review
 - **Write to repo files via retro.** No CLAUDE.md edits. Lessons are personal cross-repo, vault only.
 - **Auto-start dev servers.** Design agent reports critical if no dev server detected.
 - **Push to `<base-ref>`.** Refuses if user is on main with a dirty tree; auto-branches if main is clean.
-- **Override the PR base branch.** Always uses repo default. Rebase target manually if needed.
 
 ---
 
@@ -288,6 +288,7 @@ The deterministic contracts above are guarded by `evals/`. Each invariant maps t
 | Dedup keys on `location` alone (§ Deduplication) | D04, D05 | D |
 | Worst-of verdict rollup; `blocked` excluded (Step 4c) | D06 | D |
 | Security/design trigger glob+keyword lists (Trigger evaluation) | D01–D03 | D |
+| Retro lessons 100-line cap, retry cap of 2, same-defect detector (§ Hard rules) | D07-D12 | D |
 | `blocked` verdict routes to user, not fix-loop (verifier/design) | J02, J03, J07, T05 | J/T |
 | Cross-component auto-critical (§ Hard rules) | J04 | J |
 | Findings without evidence dropped | J06 | J |

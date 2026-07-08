@@ -18,7 +18,7 @@ See [`RUNNING.md`](RUNNING.md) for exact commands, and [`graders/rubric.md`](gra
 
 ## Honest coverage
 
-Of ~20 planned cases, ~6 (Class D) are true push-button automation. The other ~14 (J + T) are agent- or human-scored, advisory per-edit. If you expect a green-button CI over the whole suite, that expectation is wrong for an LLM orchestrator — only Class D is CI-gateable. Only the three sample cases below (`D04`, `J02`, `T04`) are fully authored; clone them to fill in the rest of the index.
+Of ~26 planned cases, 12 (Class D) are true push-button automation. The other ~14 (J + T) are agent- or human-scored, advisory per-edit. If you expect a green-button CI over the whole suite, that expectation is wrong for an LLM orchestrator — only Class D is CI-gateable. All D cases are authored and runnable. `D04`, `J02`, and `T04` additionally carry a written spec (`case.md`); the J/T fixture files themselves (base/head trees, `spawn-prompt.txt`, golden transcripts) are NOT yet materialized — author them from the case spec before running those classes (`mkfixture.sh` fails loudly on a case with no fixture trees).
 
 ## Case index
 
@@ -30,6 +30,12 @@ Of ~20 planned cases, ~6 (Class D) are true push-button automation. The other ~1
 | D04 | D | dedup merges two findings on same `location`, keeps higher severity, unions evidence | 2.1 |
 | D05 | D | dedup does NOT merge across different locations even w/ same dimension name | 2.1 |
 | D06 | D | verdict rollup: worst-of code verdicts; `blocked` does not roll up | 2.1 |
+| D07 | D | retro lessons cap: 100 lines is within cap (inclusive boundary) | 2.4 |
+| D08 | D | retro lessons cap: 101 lines is over cap | 2.4 |
+| D09 | D | retry cap: attempt 2 is within the per-loop cap of 2 | 2.4 |
+| D10 | D | retry cap: attempt 3 is over cap | 2.4 |
+| D11 | D | same-defect detector fires on identical `currentMode` across attempts | 2.4 |
+| D12 | D | same-defect detector does NOT fire when there is no prior mode | 2.4 |
 | J01 | J | verifier red test → verdict critical + `currentMode` present | |
 | J02 | J | verifier missing-deps → verdict `blocked` (not critical), log evidence | 2.1 |
 | J03 | J | verifier timeout >5min → `blocked` | 2.1 |
@@ -46,4 +52,4 @@ Of ~20 planned cases, ~6 (Class D) are true push-button automation. The other ~1
 | T04 | T | same-defect livelock: identical `currentMode` → escalation, retry budget not burned | |
 | T05 | T | panel blocked (design, no dev server) → user routed, other verdicts kept, no respawn | 2.1 |
 
-(20 cases: 6 D, 10 J, ~5 T. `2.x` marks behavior introduced by the v2.1/2.2 audit-remediation batch.)
+(26 cases: 12 D, 10 J, ~5 T. `2.x` marks the version whose audit/remediation batch introduced the guarded behavior.)

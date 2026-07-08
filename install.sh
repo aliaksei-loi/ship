@@ -72,8 +72,6 @@ echo "  1. Start a new Claude Code session (agent definitions are session-cached
 echo "  2. Verify: /ship --help (or just type /ship and let the harness suggest the skill)."
 echo "  3. Optional: ensure 'gh' CLI is authenticated (gh auth status)."
 echo
-echo "Cross-run lessons are OPTIONAL and configured in ONE place:"
-echo "  $REPO/skills/ship/SKILL.md  →  the LESSONS_ROOT value (see 'Lessons memory (portable)')."
-echo
-echo "Default is the maintainer's Obsidian dir. Set LESSONS_ROOT to your own"
-echo "directory, or leave it empty to run /ship without lessons (no priors)."
+echo "Cross-run lessons are OPTIONAL. Set the location once:"
+echo "  git config --global ship.lessonsRoot <your-dir>    (or export SHIP_LESSONS_ROOT)"
+echo "Unset = /ship runs without lessons (no priors) — never an error."

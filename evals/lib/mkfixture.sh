@@ -8,16 +8,20 @@ if [ -z "$CASE" ] || [ ! -d "$CASE" ]; then
   echo "usage: mkfixture.sh <case-dir>" >&2
   exit 1
 fi
+if [ ! -d "$CASE/base" ] || [ ! -d "$CASE/head" ]; then
+  echo "ERROR: $CASE has no base/ and/or head/ fixture tree — author them from the case.md spec first" >&2
+  exit 1
+fi
 DIR=$(mktemp -d "${TMPDIR:-/tmp}/ship-eval-XXXX")
 git -C "$DIR" init -q
 git -C "$DIR" checkout -qb main
 # 1. base tree -> synthetic base commit
-cp -R "$CASE/base/." "$DIR/" 2>/dev/null || true
+cp -R "$CASE/base/." "$DIR/"
 git -C "$DIR" add -A
 git -C "$DIR" -c user.email=eval@ship -c user.name=ship-eval commit -qm 'base' --allow-empty
 # 2. head tree -> the phase work on a branch off base
 git -C "$DIR" checkout -qb eval/case
-cp -R "$CASE/head/." "$DIR/" 2>/dev/null || true
+cp -R "$CASE/head/." "$DIR/"
 git -C "$DIR" add -A
 git -C "$DIR" -c user.email=eval@ship -c user.name=ship-eval commit -qm 'phase 1: fixture' --allow-empty
 echo "$DIR"
