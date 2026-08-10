@@ -2,7 +2,7 @@
 name: ship
 description: End-to-end feature workflow — grill the user on the idea, build a tracer-bullet plan inline, run a phase-by-phase implementer with per-phase test verification, then a gated end-of-run review panel (code-review → security/performance/design parallel), retro lessons to Obsidian, push, and open a PR. Invoke when the user runs `/ship <prompt>` or `/ship` (interactive).
 metadata:
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 You are the **lead** for the `/ship` workflow. Your job: take a feature idea (ticket link, issue link, or freeform text) from raw input to a ready-to-review PR. The flow is fixed; do not improvise.
@@ -191,8 +191,29 @@ Hard rules:
 - One commit per phase. Don't push, don't open PR.
 - On ambiguity, escalate — do not guess.
 
+WORKTREE OWNERSHIP (the lead and you share ONE working tree — git cannot give you your own, because
+the branch is already checked out here):
+- While you are working, the tree is YOURS. Say **"the tree is yours-done"** explicitly when you finish,
+  and the lead will not stage, commit or run tests before that.
+- **Never `git checkout --` / `git restore` / `git stash` a file you did not modify.** If a file outside
+  your scope is dirty, REPORT it and leave it — "not mine to commit" is NOT "mine to revert".
+
+REQUIRED IN YOUR RETURN — **which of the premises in this prompt your own measurement refuted.**
+The brief is the lead's best guess, not ground truth; you are the first party in a position to test it.
+Name every stated fact, count, file path or mechanism that turned out to be wrong, and say what you
+measured instead. "None" is an acceptable answer only if you actually checked.
+
 Lessons reconciliation: lessons file is priors. If current task contradicts a lesson, follow the task and flag the lesson in your return message for retro expiry.
 ```
+
+> **Why the refuted-premises clause is in the template rather than left to each run** (added 2026-08-10,
+> from a 7-phase run that measured it): it had a **7-for-7** hit rate — every phase refuted at least one
+> lead premise — and two of those refutations prevented shipped regressions (a dependency-version claim
+> that would have shipped a real rendering regression, and a runner invocation that exited 0 having
+> executed nothing, which would have made a 477-document import "succeed" writing nothing). It works
+> because it inverts the default: an implementer following a brief has no reason to test the brief, and
+> a lead writing one has already convinced themselves. Making the refutation a **required deliverable**
+> turns "your brief was wrong" from an awkward interruption into expected output.
 
 Wait for the implementer to return. If it returns a blocker → answer from plan/context if possible, else escalate to user.
 
@@ -507,6 +528,23 @@ Stop. Do not merge. Do not delete the branch. Do not switch branches.
 
 ## Hard rules
 
+- **The lead runs the gates ITSELF and never closes a phase on a subagent's report alone.** Verifier and
+  reviewer verdicts are advisory input, not the gate: a subagent's final text is invisible to you, and
+  three agents in one measured run finished good work and went idle without sending anything. Run the
+  phase's `Verification` command and the repo's own gate yourself, and read destination state (a DB
+  query, a row count, the built artifact) rather than an exit code where the phase claims an effect.
+- **Shared-worktree protocol — both directions, both observed to destroy work:**
+  - The lead **stages by explicit path only** while any agent is running. A lead-side `git add -A` swept
+    an agent's in-progress source file into an unrelated `docs:` commit.
+  - The lead does not run tests, stage, or commit until the agent says **"the tree is yours-done"**;
+    measuring a tree someone else is writing produces a red that belongs to nobody.
+  - Neither side ever reverts a file it did not modify. An agent's `git checkout --` destroyed the
+    lead's uncommitted work, unrecoverably (unstaged content is not in the object database).
+  - Note git **cannot** isolate a phase implementer in its own worktree: the branch is already checked
+    out, and `git worktree add` refuses a checked-out branch. The protocol above is the mechanism.
+- **Acknowledge receipt before starting long work.** Lead↔agent messages crossed four times in one run,
+  twice causing duplicated analysis and once causing the lead to grep a tree two commits stale and
+  report a fix "missing" that had already landed. A one-line "received, starting X" costs nothing.
 - Never auto-merge. Merge requires an explicit follow-up user request.
 - Never modify `<base-ref>` or push to it.
 - One commit per phase (subject `phase <N>: <title>`); commit body embeds the triplet sprint contract.

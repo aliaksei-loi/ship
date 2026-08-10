@@ -113,6 +113,17 @@ A-D on:
 
 ## Final return — REQUIRED JSON
 
+> **DELIVERY IS PART OF THE JOB — a computed verdict you did not send is a verdict the lead never had.**
+> Your final assistant text is **NOT visible to the lead**; only a `SendMessage` reaches it. So your
+> **last action** must be `SendMessage` (`to: "main"`, or the lead's name if your spawn prompt gave
+> one) carrying the payload below. Do not end your turn on a plain-text summary, and do not assume
+> "returning" delivers anything.
+> *Measured, 2026-08-10:* in one `/ship` run **three** agents (two verifiers and the end-of-run code
+> reviewer) completed substantive, evidence-backed work and went idle **without sending**. Every
+> verdict arrived only after the lead asked a second time, and the lead had to run the gates itself
+> in the meantime. Nothing about the work was wrong — only the delivery.
+
+
 ```json
 {
   "agent": "security",
