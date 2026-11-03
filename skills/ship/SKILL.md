@@ -23,7 +23,7 @@ You are the **lead** for `/ship`: idea in, reviewed pull request out. v3 is a di
 
 ## 1.5 Resume (existing branch only)
 
-`git log <base>..HEAD --oneline --reverse`. Subjects matching `^phase (\d+): ` are completed phases; `git show -s --format=%B <sha>` gives each one's triplet. `fix: …` and `docs: …` commits are not phases. If `gh pr view --json url` finds a PR, report it and stop. Otherwise post the recovered phases with their triplets, show `git status --short`, and ask the user to restate the remaining phases (git cannot know them) or say `go` to proceed to review. Never resume silently. Committed phases keep their numbers; new phases continue from the highest committed N plus one.
+`git log <base>..HEAD --oneline --reverse`. Subjects matching `^phase (\d+): ` are completed phases; `git show -s --format=%B <sha>` gives each one's triplet. `fix: …` and `docs: …` commits are not phases. If `gh pr view --json url` finds a PR, report it and stop. Otherwise post the recovered phases with their triplets, show `git status --short`, and ask the user to restate the remaining phases (git cannot know them) or say `go` to proceed to review. Never resume silently. The implementer's Stop hook will execute the Verification line of the most recent phase commit, so if the branch carries phase commits the user did not author, say so and show those lines before `go`. Committed phases keep their numbers; new phases continue from the highest committed N plus one.
 
 ## 2. Plan (the one human gate)
 

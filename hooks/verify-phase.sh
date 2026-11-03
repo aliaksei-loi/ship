@@ -7,6 +7,11 @@
 #
 # Input: hook JSON on stdin (cwd, agent_id, last_assistant_message, stop_hook_active).
 # Exit 0 = let the agent finish. Exit 2 = block; stderr goes back to the agent.
+#
+# Trust model: the command comes from a commit body in the checkout, so running it extends the
+# same trust as running the repo's own test script (package.json scripts are repo-controlled
+# shell too), and the lead and the implementer run the same line by design. Only run /ship on
+# branches whose `phase <N>:` commits you trust; the resume step lists them before you say go.
 set -u
 
 input="$(cat)"
@@ -34,8 +39,13 @@ if [ -z "$cmd" ]; then
 fi
 
 # Block at most twice per agent, then let it finish so the lead can decide.
-counter="${TMPDIR:-/tmp}/ship-verify-${agent_id}.count"
+# The counter lives in the repo's git dir (user-owned, never world-writable); the id is sanitised
+# and the write never follows a symlink.
+safe_id="$(printf '%s' "$agent_id" | tr -c 'A-Za-z0-9_-' '_')"
+counter="$(git rev-parse --git-dir)/ship-verify-${safe_id}.count"
+[ -L "$counter" ] && exit 0
 n="$(cat "$counter" 2>/dev/null || echo 0)"
+case "$n" in ''|*[!0-9]*) n=0 ;; esac
 if [ "$n" -ge 2 ]; then rm -f "$counter"; exit 0; fi
 
 if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
