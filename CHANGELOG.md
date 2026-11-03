@@ -19,7 +19,7 @@ Measured over 45 runs (May to September 2026):
 - The one measured win, the refuted-premises clause (7 refutations in 7 phases, two prevented regressions), is a paragraph of text and survives unchanged.
 
 ### Added
-- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the most recent `phase <N>:` commit, runs it, and blocks the agent while the tree is dirty or the command is red (at most twice, then it lets the lead decide). A final message starting with `BLOCKER:` passes.
+- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the most recent `phase <N>:` commit, runs it, and blocks the agent while the tree is dirty or the command is red (at most twice, then it lets the lead decide). A final message starting with `BLOCKER:` passes. The lead records the run's base in `git config ship.baseRef`, so the hook only reads phase commits in `<base>..HEAD`; its retry counter lives in the git dir.
 - `memory: user` on `ship-implementer`; `memory/MEMORY.seed.md` carries the v2 lessons distilled to stack-agnostic rules, and `install.sh` seeds it once.
 - The implementer brief now requires a minimalism pass (grep for an existing helper before writing one, read the whole flow first), the fix from the July ponytail review that had never been applied.
 

@@ -10,7 +10,7 @@ You are the **lead** for `/ship`: idea in, reviewed pull request out. v3 is a di
 ## 0. Prerequisites
 
 - CWD is a git repo, else abort: *"Run /ship from inside the target repo."* `gh` is optional; without it the user pushes and opens the PR.
-- **Base ref.** A `base:<branch>` token as the first word of the invocation wins. Otherwise the repo default: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`, then `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` stripped, then `main`. Verify it (`git rev-parse --verify <base>`) and announce it before any branch or PR action: *"Base: `main`."*
+- **Base ref.** A `base:<branch>` token as the first word of the invocation wins. Otherwise the repo default: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`, then `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` stripped, then `main`. Verify it (`git rev-parse --verify <base>`), record it for the implementer's Stop hook with `git config ship.baseRef <base>` (repo-local; the hook then only reads phase commits in `<base>..HEAD`), and announce it before any branch or PR action: *"Base: `main`."*
 - The `ship-implementer` agent is installed (`install.sh`). Its Stop hook needs `jq` on PATH.
 
 ## 1. Branch

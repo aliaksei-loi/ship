@@ -26,11 +26,19 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 case "$last_msg" in *BLOCKER:*) exit 0 ;; esac
 
 # Find the most recent phase commit; a `fix:` commit on top inherits its command.
+# Scope: the lead records the run's base ref in `git config ship.baseRef` at run start, so only
+# this run's commits (<base>..HEAD) are searched. Without it, fall back to the last 30 commits.
+base="$(git config --get ship.baseRef 2>/dev/null || true)"
+if [ -n "$base" ] && git rev-parse --verify --quiet "$base" >/dev/null; then
+  range="$base..HEAD"
+else
+  range="-30"
+fi
 phase_sha=""
 while read -r sha subject; do
   case "$subject" in phase\ [0-9]*:*) phase_sha="$sha"; break ;; esac
-done < <(git log -30 --format='%H %s' 2>/dev/null)
-[ -z "$phase_sha" ] && exit 0   # no ship phase on this branch: nothing to verify
+done < <(git log $range --format='%H %s' 2>/dev/null)
+[ -z "$phase_sha" ] && exit 0   # no ship phase in range: nothing to verify
 
 cmd="$(git log -1 --format=%B "$phase_sha" | sed -n 's/^Verification: *//p' | head -1 | sed 's/^`//; s/`$//')"
 if [ -z "$cmd" ]; then
