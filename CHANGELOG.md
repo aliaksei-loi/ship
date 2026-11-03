@@ -4,6 +4,42 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-03
+
+Rewrite: one skill plus one agent. Breaking: seven agents, the evals, the lessons files and the JSON return contracts are gone.
+
+### Why
+
+Measured over 45 runs (May to September 2026):
+- The four-reviewer panel was the weakest component. Four consecutive runs passed a green panel and then lost 15, 15, 6 and 5 real defects to an external `/code-review` at max effort (P1-T12, P1-T20, P3-T1, P3-T5). Sonnet reviewers plus an evidence-required filter cut recall; the built-in review at high or max is what actually caught the defects.
+- The haiku verifier became redundant the moment v2.5.0 added "the lead runs the gates itself". In a five-phase run where every phase was green first try, it added latency and caught nothing.
+- The verdict-delivery failures (ADR-M128, five cases) were an artifact of the experimental teammate mode. A foreground subagent's report returns to the caller on its own.
+- Both work-loss incidents (ADR-M97) were two writers in one tree, now prevented by one rule rather than a protocol.
+- The lessons memory saturated: 607 lines, six of seven files at the 100-line cap, two entries duplicated across roles, and nothing read them once runs stopped. Claude Code's `memory: user` on the agent replaces the retro agent, the per-role files, the cap, the pruning and the expiry.
+- The one measured win, the refuted-premises clause (7 refutations in 7 phases, two prevented regressions), is a paragraph of text and survives unchanged.
+
+### Added
+- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the most recent `phase <N>:` commit, runs it, and blocks the agent while the tree is dirty or the command is red (at most twice, then it lets the lead decide). A final message starting with `BLOCKER:` passes.
+- `memory: user` on `ship-implementer`; `memory/MEMORY.seed.md` carries the v2 lessons distilled to stack-agnostic rules, and `install.sh` seeds it once.
+- The implementer brief now requires a minimalism pass (grep for an existing helper before writing one, read the whole flow first), the fix from the July ponytail review that had never been applied.
+
+### Removed
+- Agents `ship-verifier`, `ship-code-review`, `ship-security`, `ship-performance`, `ship-design`, `ship-debugger`, `ship-retro`.
+- `evals/`: it tested a 91-line re-implementation of the rules, not the skill, and never caught any of the invariants that actually broke.
+- JSON return schemas, rubrics, `currentMode` / livelock detection, `lessonConflicts`, `userCorrections`, the delivery paragraph, the shared-worktree protocol, the `LESSONS_ROOT` resolution, the `SHIP_BASE_REF` / `git config ship.baseRef` precedence (the `base:<branch>` token and the repo default remain).
+
+### Changed
+- Review is `/code-review high <base>...<branch>` (max for auth, payments, schema or large diffs), `/security-review` on the same triggers as before, `visual-check` on UI diffs with a dev server.
+- Debugging a stuck phase is the `diagnose` skill run by the lead, after one fix respawn.
+- Planning: `grill-me` and `grill-with-docs` are marked user-invoked only in their frontmatter, so the lead never calls them; the interview is inline, or the `grilling` skill if installed.
+- Resume is unchanged in mechanism (git-only) and a quarter of the length.
+- Fix-commit subjects use a colon separator (`fix: phase 2 verifier: topic`) instead of an em-dash.
+
+### Migration
+- Run `./install.sh`: it removes the seven agent symlinks and adds the hook symlink and the memory seed.
+- The v2 lessons files are not read by anything; archive or mine them by hand.
+- Interrupted v2 branches resume as before: `phase <N>:` commits are read the same way.
+
 ## [2.5.0] - 2026-08-10
 
 Shipped as commit `09d167c`; this entry was written retroactively in 3.0.0. Remediation of three failure classes measured in a 7-phase production run (ADR-M97, ADR-M128).
