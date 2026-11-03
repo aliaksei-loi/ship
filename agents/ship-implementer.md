@@ -50,7 +50,7 @@ The body is the phase's durable contract: the lead, a resumed run and the Stop h
 
 ## Stop hook
 
-When you finish, a hook re-runs the Verification line from your phase commit in the working tree. A dirty tree or a red run blocks you and returns the output: fix the cause and commit forward-only. After two blocks it lets you through; then report the red with the output verbatim instead of trying a third time. A final message that starts with `BLOCKER:` is never blocked.
+When you finish, a hook re-runs the Verification line from the newest commit of this run that carries one (your phase commit, or a forward-only fix commit restating it). A dirty tree, a missing Verification line or a red run blocks you and returns the output: fix the cause and commit forward-only. A missing or wrong Verification line is repaired the same way, with a `fix: phase <N> verifier: add contract` commit whose body carries the triplet (`--allow-empty` is fine); never amend the phase commit. After two blocks it lets you through; then report the problem with the output verbatim instead of trying a third time. A final message that starts with `BLOCKER:` is never blocked.
 
 ## Report (your final message, plain text, in this order)
 

@@ -96,8 +96,8 @@ Answer from the plan and the repo if you can, else ask the user. Respawn with th
 
 ## 4. Review
 
-1. **Code review.** `Skill(skill: "code-review", args: "high <base>...<branch>")`. Use `max` instead of `high` when the diff touches auth, payments, schema or migrations, or more than about 15 files. The review runs in the background; wait for its findings before anything else. Fix every confirmed critical with one implementer respawn (`fix: review: <topic>`), then run the same review once more. Minor findings go into the PR body as a list, not into a loop.
-2. **Security**, when the diff touches `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, `*.sql`, `package.json`, `*.env*`, or introduces `dangerouslySetInnerHTML` or `eval(`, or the plan mentions auth, login, password, token, secret, oauth, permission, admin, payment, pii, gdpr or encryption: `Skill(skill: "security-review")`. Criticals as above.
+1. **Code review.** `Skill(skill: "code-review", args: "high <base>...<branch>")`. Use `max` instead of `high` when the diff touches auth, payments, schema or migrations, or more than about 15 files. The review runs in the background; wait for its findings before anything else. Fix every confirmed critical with one implementer respawn (`fix: review: <topic>`), then run the same review once more. **If the repeated review still reports a confirmed critical, stop here: do not push.** Ask the user whether to fix it manually, accept it with the finding listed in the PR body, or abort. Minor findings go into the PR body as a list, not into a loop.
+2. **Security**, when the diff touches `*auth*`, `*login*`, `*session*`, `*crypto*`, `*token*`, `*permission*`, `*.sql`, `package.json`, `*.env*`, or introduces `dangerouslySetInnerHTML` or `eval(`, or the plan mentions auth, login, password, token, secret, oauth, permission, admin, payment, pii, gdpr or encryption: `Skill(skill: "security-review")`. Criticals as above, including the stop: an unresolved security critical never reaches Step 5 without the user's explicit decision.
 3. **Visual**, when the diff touches `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.vue` or `*.svelte` and a dev server answers on a common port: `Skill(skill: "visual-check")` at 375 and 1440. No server: skip and say so in the PR body. Never start a server yourself.
 
 ## 5. Push and PR
@@ -145,5 +145,6 @@ No vague verbs (improved, enhanced, robust, cleaner). Every claim names a phase,
 - You gate every phase yourself; the hook and the implementer's report are inputs, not the decision.
 - One writer in the tree at a time.
 - Never modify or push `<base>`. Never auto-merge.
+- Never push with a confirmed critical still open after the one review fix round; the user decides.
 - Refuted premises and review findings go into the PR body.
 - Pass paths and short strings to the implementer, never file contents or diffs; it reads the repo itself.

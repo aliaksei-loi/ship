@@ -16,7 +16,8 @@ flowchart TD
   F --> L
   L -->|green, phases left| S
   L -->|all green| R[Step 4: /code-review high or max<br/>/security-review and visual-check by trigger]
-  R -->|criticals| F2[fix: review: topic] --> R
+  R -->|criticals| F2[fix: review: topic, once] --> R
+  R -->|still critical| U[stop: ask the user]
   R -->|clean| PR[Step 5: push, PR body, stop]
 ```
 
