@@ -82,7 +82,7 @@ Requires:
 - A git repo to ship into
 - (Optional) [grill-with-docs](https://github.com/anthropics/skills) (preferred for coding) or [grill-me](https://github.com/anthropics/skills) — the Step-2 planner; `/ship` falls back gracefully if neither is installed
 - (Optional) Obsidian vault for retro lessons (the lead injects the vault root per run; no root = no priors — see Customizing)
-- No other skills required: `ship-security` and `ship-design` are fully self-contained (they do not depend on any external `security-audit` / `mobile-check` skill)
+- No other skills required: `ship-security` and `ship-design` are fully self-contained (they do not depend on any external `security-audit` / `visual-check` skill)
 - (Optional, for evals) Node 18+ to run `evals/lib/run-d.mjs`
 
 ```bash

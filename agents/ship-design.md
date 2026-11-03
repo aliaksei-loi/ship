@@ -7,7 +7,7 @@ tools: Read, Grep, Glob, Bash, SendMessage, mcp__chrome-devtools__navigate_page,
 
 You are the **design reviewer** for the end-of-run panel. The lead spawned you because UI signals fired (changed `*.tsx|css|...`, design keywords in plan, or a Figma URL). Your job: screenshot, look, report. Run in parallel with security + performance after code-review has gated green.
 
-> **Why this is self-contained (not a delegate).** The mobile breakpoints below (375/390/428) match the standalone `mobile-check` skill, and that skill is the reference for them. This agent goes beyond it — headless JSON return, `blocked` verdict, desktop 1440, optional Figma compare, tap-target/console a11y, self-managed screenshot temp dir — and, as a *spawned subagent*, it cannot invoke `mobile-check` or any skill at runtime. Keep the breakpoint list here in sync with `mobile-check` if you change it; do not replace this file with a delegation call.
+> **Why this is self-contained (not a delegate).** The mobile breakpoints below (375/390/428) match the standalone `visual-check` skill, and that skill is the reference for them. This agent goes beyond it — headless JSON return, `blocked` verdict, desktop 1440, optional Figma compare, tap-target/console a11y, self-managed screenshot temp dir — and, as a *spawned subagent*, it cannot invoke `visual-check` or any skill at runtime. Keep the breakpoint list here in sync with `visual-check` if you change it; do not replace this file with a delegation call.
 
 ## Lessons memory (READ FIRST)
 

@@ -4,6 +4,20 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-08-10
+
+Shipped as commit `09d167c`; this entry was written retroactively in 3.0.0. Remediation of three failure classes measured in a 7-phase production run (ADR-M97, ADR-M128).
+
+### Added
+- **Refuted-premises clause** in the implementer spawn template. The implementer must name every stated fact, count, path or mechanism in its brief that its own measurement refuted. Measured 7-for-7 in the run that introduced it; two refutations prevented shipped regressions.
+- **Verdict delivery paragraph** ("DELIVERY IS PART OF THE JOB") in all five reporting agents: the last action must be a `SendMessage` to the lead. Five agents in one run finished evidence-backed work and went idle without sending.
+- **Shared-worktree ownership protocol** in the lead's hard rules: the lead stages by explicit path only while an agent runs, does not test or commit until the agent says "the tree is yours-done", and neither side reverts a file it did not modify. Both directions had destroyed work once.
+- **Lead runs the gates itself.** Verifier and reviewer verdicts are advisory; the lead re-runs the phase's verification command and reads destination state before closing a phase.
+- **Acknowledge-receipt rule** for lead and agent messages, after four crossed messages in one run.
+
+### Docs
+- `mobile-check` references renamed to `visual-check` (README, CHANGELOG 2.2.0 entry, `ship-design`).
+
 ## [2.4.0] - 2026-07-08
 
 Remediation of a 60-agent external audit (5 review dimensions, adversarial verification). No workflow-shape change.
@@ -65,7 +79,7 @@ Feature wave from the /ship self-audit remediation: resume, auto-debug, portable
 - **Planner is now `grill-with-docs`** (falls back to `grill-me` if unavailable). It grounds the plan in the repo's domain model and sharpens terminology; any `CONTEXT.md`/ADR update it proposes is folded into a phase commit, never written to the working tree inline (preserves the "only phase commits touch the repo" invariant).
 - **Portable lessons path.** The hardcoded `~/Documents/AL Obsidian/...` path is gone from all 8 agent/install files. The lead injects a single configurable `LESSONS_ROOT` at each spawn, and `no root = no priors` (never an error). Set it once in `SKILL.md`.
 - **Verifier carved out of the shared reviewer contract** (`ARCHITECTURE.md`): it is a test-runner with its own schema, not a review-panel agent, so it is documented separately.
-- **Provenance notes** on `ship-security` / `ship-design` and Step 6 explaining why they stay self-contained (spawned subagents cannot invoke skills; the canonical `security-audit` / `mobile-check` / github tools are not bundled) rather than delegating.
+- **Provenance notes** on `ship-security` / `ship-design` and Step 6 explaining why they stay self-contained (spawned subagents cannot invoke skills; the canonical `security-audit` / `visual-check` / github tools are not bundled) rather than delegating.
 
 ## [2.1.0] — 2026-06-27
 
