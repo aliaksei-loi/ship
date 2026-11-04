@@ -10,6 +10,7 @@
 # Exit 0 = let the agent finish. Exit 2 = block; stderr goes back to the agent.
 # Every block counts toward one cap of two per agent; after that the agent is let through so the
 # lead can decide. Recovery is always a forward-only commit; phase commits are never amended.
+# One line per run is appended to <git dir>/ship-verify.log so a lead can see the hook fired.
 #
 # Trust model: the command comes from a commit body in the checkout, so running it extends the
 # same trust as running the repo's own test script (package.json scripts are repo-controlled
@@ -25,8 +26,12 @@ last_msg="$(printf '%s' "$input" | jq -r '.last_assistant_message // empty' 2>/d
 [ -n "$cwd" ] && cd "$cwd" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
+gitdir="$(git rev-parse --git-dir)"
+safe_id="$(printf '%s' "$agent_id" | tr -c 'A-Za-z0-9_-' '_')"
+log() { echo "$(date -u +%FT%TZ) agent=$safe_id $*" >> "$gitdir/ship-verify.log" 2>/dev/null; }
+
 # An escalation is a legitimate stop: the implementer asks the lead instead of guessing.
-case "$last_msg" in *BLOCKER:*) exit 0 ;; esac
+case "$last_msg" in *BLOCKER:*) log "pass: BLOCKER"; exit 0 ;; esac
 
 # Scope: the lead records the run's base ref in `git config ship.baseRef` at run start, so only
 # this run's commits (<base>..HEAD) are searched. Without it, fall back to the last 30 commits.
@@ -38,20 +43,23 @@ else
 fi
 
 # No ship phase in range: nothing to verify.
-git log $range --format='%s' 2>/dev/null | grep -q '^phase [0-9][0-9]*:' || exit 0
+if ! git log $range --format='%s' 2>/dev/null | grep -q '^phase [0-9][0-9]*:'; then
+  log "skip: no phase commit in $range"
+  exit 0
+fi
 
 # Block at most twice per agent, then let it finish so the lead can decide.
 # The counter lives in the repo's git dir (user-owned, never world-writable); the id is sanitised
 # and the write never follows a symlink.
-safe_id="$(printf '%s' "$agent_id" | tr -c 'A-Za-z0-9_-' '_')"
-counter="$(git rev-parse --git-dir)/ship-verify-${safe_id}.count"
+counter="$gitdir/ship-verify-${safe_id}.count"
 [ -L "$counter" ] && exit 0
 n="$(cat "$counter" 2>/dev/null || echo 0)"
 case "$n" in ''|*[!0-9]*) n=0 ;; esac
-if [ "$n" -ge 2 ]; then rm -f "$counter"; exit 0; fi
+if [ "$n" -ge 2 ]; then rm -f "$counter"; log "pass: cap reached, lead decides"; exit 0; fi
 
 block() {  # block <message...>: count the block, send the message to the agent, exit 2
   echo $((n + 1)) > "$counter"
+  log "blocked $((n + 1))/2: $1"
   printf '%s\n' "$@" >&2
   echo "Attempt $((n + 1)) of 2. After the second block, finish and report the problem with this output verbatim." >&2
   exit 2
@@ -84,4 +92,5 @@ if [ "$rc" -ne 0 ]; then
 fi
 
 rm -f "$counter"
+log "green: $cmd"
 exit 0

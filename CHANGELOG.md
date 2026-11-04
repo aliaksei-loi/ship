@@ -4,7 +4,7 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-11-03
+## [3.0.0] - 2026-11-04
 
 Rewrite: one skill plus one agent. Breaking: seven agents, the evals, the lessons files and the JSON return contracts are gone.
 
@@ -19,14 +19,14 @@ Measured over 45 runs (May to September 2026):
 - The one measured win, the refuted-premises clause (7 refutations in 7 phases, two prevented regressions), is a paragraph of text and survives unchanged.
 
 ### Added
-- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the most recent `phase <N>:` commit, runs it, and blocks the agent while the tree is dirty or the command is red (at most twice, then it lets the lead decide). A final message starting with `BLOCKER:` passes. The lead records the run's base in `git config ship.baseRef`, so the hook only reads phase commits in `<base>..HEAD`; its retry counter lives in the git dir.
+- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the newest commit of the run that carries one (the `phase <N>:` commit, or a forward-only fix commit restating it), runs it, and blocks the agent while the line is missing, the tree is dirty or the command is red (at most twice in total, then it lets the lead decide). A final message starting with `BLOCKER:` passes. The lead records the run's base in `git config ship.baseRef`, so the hook only reads commits in `<base>..HEAD`; its retry counter and a one-line-per-run log live in the git dir.
 - `memory: user` on `ship-implementer`; `memory/MEMORY.seed.md` carries the v2 lessons distilled to stack-agnostic rules, and `install.sh` seeds it once.
 - The implementer brief now requires a minimalism pass (grep for an existing helper before writing one, read the whole flow first), the fix from the July ponytail review that had never been applied.
 
 ### Removed
 - Agents `ship-verifier`, `ship-code-review`, `ship-security`, `ship-performance`, `ship-design`, `ship-debugger`, `ship-retro`.
 - `evals/`: it tested a 91-line re-implementation of the rules, not the skill, and never caught any of the invariants that actually broke.
-- JSON return schemas, rubrics, `currentMode` / livelock detection, `lessonConflicts`, `userCorrections`, the delivery paragraph, the shared-worktree protocol, the `LESSONS_ROOT` resolution, the `SHIP_BASE_REF` / `git config ship.baseRef` precedence (the `base:<branch>` token and the repo default remain).
+- JSON return schemas, rubrics, `currentMode` / livelock detection, `lessonConflicts`, `userCorrections`, the delivery paragraph, the shared-worktree protocol, the `LESSONS_ROOT` resolution, the `SHIP_BASE_REF` environment variable and `git config ship.baseRef` as user-set inputs (the `base:<branch>` token and the repo default remain; the lead now writes `ship.baseRef` itself for the hook).
 
 ### Changed
 - Review is `/code-review high <base>...<branch>` (max for auth, payments, schema or large diffs), `/security-review` on the same triggers as before, `visual-check` on UI diffs with a dev server.
