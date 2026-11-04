@@ -4,6 +4,56 @@ All notable changes to ship will be tracked here.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-04
+
+Rewrite: one skill plus one agent. Breaking: seven agents, the evals, the lessons files and the JSON return contracts are gone.
+
+### Why
+
+Measured over 45 runs (May to September 2026):
+- The four-reviewer panel was the weakest component. Four consecutive runs passed a green panel and then lost 15, 15, 6 and 5 real defects to an external `/code-review` at max effort (P1-T12, P1-T20, P3-T1, P3-T5). Sonnet reviewers plus an evidence-required filter cut recall; the built-in review at high or max is what actually caught the defects.
+- The haiku verifier became redundant the moment v2.5.0 added "the lead runs the gates itself". In a five-phase run where every phase was green first try, it added latency and caught nothing.
+- The verdict-delivery failures (ADR-M128, five cases) were an artifact of the experimental teammate mode. A foreground subagent's report returns to the caller on its own.
+- Both work-loss incidents (ADR-M97) were two writers in one tree, now prevented by one rule rather than a protocol.
+- The lessons memory saturated: 607 lines, six of seven files at the 100-line cap, two entries duplicated across roles, and nothing read them once runs stopped. Claude Code's `memory: user` on the agent replaces the retro agent, the per-role files, the cap, the pruning and the expiry.
+- The one measured win, the refuted-premises clause (7 refutations in 7 phases, two prevented regressions), is a paragraph of text and survives unchanged.
+
+### Added
+- `hooks/verify-phase.sh`: a `Stop` hook on `ship-implementer` that reads the `Verification:` line from the current phase (the newest `phase <N>:` commit, or a forward-only fix commit on top of it; an earlier phase's command is never borrowed), runs it, and blocks the agent while the line is missing, the tree is dirty or the command is red (at most twice in total, then it lets the lead decide). A final message starting with `BLOCKER:` passes. The lead records the run's base in `git config ship.baseRef`, so the hook only reads commits in `<base>..HEAD`; its retry counter and a one-line-per-run log live in the git dir.
+- `memory: user` on `ship-implementer`; `memory/MEMORY.seed.md` carries the v2 lessons distilled to stack-agnostic rules, and `install.sh` seeds it once.
+- The implementer brief now requires a minimalism pass (grep for an existing helper before writing one, read the whole flow first), the fix from the July ponytail review that had never been applied.
+
+### Removed
+- Agents `ship-verifier`, `ship-code-review`, `ship-security`, `ship-performance`, `ship-design`, `ship-debugger`, `ship-retro`.
+- `evals/`: it tested a 91-line re-implementation of the rules, not the skill, and never caught any of the invariants that actually broke.
+- JSON return schemas, rubrics, `currentMode` / livelock detection, `lessonConflicts`, `userCorrections`, the delivery paragraph, the shared-worktree protocol, the `LESSONS_ROOT` resolution, the `SHIP_BASE_REF` environment variable and `git config ship.baseRef` as user-set inputs (the `base:<branch>` token and the repo default remain; the lead now writes `ship.baseRef` itself for the hook).
+
+### Changed
+- Review is `/code-review high <base>...<branch>` (max for auth, payments, schema or large diffs), `/security-review` on the same triggers as before, `visual-check` on UI diffs with a dev server.
+- Debugging a stuck phase is the `diagnose` skill run by the lead, after one fix respawn.
+- Planning: `grill-me` and `grill-with-docs` are marked user-invoked only in their frontmatter, so the lead never calls them; the interview is inline, or the `grilling` skill if installed.
+- Resume is unchanged in mechanism (git-only) and a quarter of the length.
+- Fix-commit subjects use a colon separator (`fix: phase 2 verifier: topic`) instead of an em-dash.
+
+### Migration
+- Run `./install.sh`: it removes the seven agent symlinks and adds the hook symlink and the memory seed.
+- The v2 lessons files are not read by anything; archive or mine them by hand.
+- Interrupted v2 branches resume as before: `phase <N>:` commits are read the same way.
+
+## [2.5.0] - 2026-08-10
+
+Shipped as commit `09d167c`; this entry was written retroactively in 3.0.0. Remediation of three failure classes measured in a 7-phase production run (ADR-M97, ADR-M128).
+
+### Added
+- **Refuted-premises clause** in the implementer spawn template. The implementer must name every stated fact, count, path or mechanism in its brief that its own measurement refuted. Measured 7-for-7 in the run that introduced it; two refutations prevented shipped regressions.
+- **Verdict delivery paragraph** ("DELIVERY IS PART OF THE JOB") in all five reporting agents: the last action must be a `SendMessage` to the lead. Five agents in one run finished evidence-backed work and went idle without sending.
+- **Shared-worktree ownership protocol** in the lead's hard rules: the lead stages by explicit path only while an agent runs, does not test or commit until the agent says "the tree is yours-done", and neither side reverts a file it did not modify. Both directions had destroyed work once.
+- **Lead runs the gates itself.** Verifier and reviewer verdicts are advisory; the lead re-runs the phase's verification command and reads destination state before closing a phase.
+- **Acknowledge-receipt rule** for lead and agent messages, after four crossed messages in one run.
+
+### Docs
+- `mobile-check` references renamed to `visual-check` (README, CHANGELOG 2.2.0 entry, `ship-design`).
+
 ## [2.4.0] - 2026-07-08
 
 Remediation of a 60-agent external audit (5 review dimensions, adversarial verification). No workflow-shape change.
@@ -65,7 +115,7 @@ Feature wave from the /ship self-audit remediation: resume, auto-debug, portable
 - **Planner is now `grill-with-docs`** (falls back to `grill-me` if unavailable). It grounds the plan in the repo's domain model and sharpens terminology; any `CONTEXT.md`/ADR update it proposes is folded into a phase commit, never written to the working tree inline (preserves the "only phase commits touch the repo" invariant).
 - **Portable lessons path.** The hardcoded `~/Documents/AL Obsidian/...` path is gone from all 8 agent/install files. The lead injects a single configurable `LESSONS_ROOT` at each spawn, and `no root = no priors` (never an error). Set it once in `SKILL.md`.
 - **Verifier carved out of the shared reviewer contract** (`ARCHITECTURE.md`): it is a test-runner with its own schema, not a review-panel agent, so it is documented separately.
-- **Provenance notes** on `ship-security` / `ship-design` and Step 6 explaining why they stay self-contained (spawned subagents cannot invoke skills; the canonical `security-audit` / `mobile-check` / github tools are not bundled) rather than delegating.
+- **Provenance notes** on `ship-security` / `ship-design` and Step 6 explaining why they stay self-contained (spawned subagents cannot invoke skills; the canonical `security-audit` / `visual-check` / github tools are not bundled) rather than delegating.
 
 ## [2.1.0] — 2026-06-27
 

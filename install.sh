@@ -1,77 +1,60 @@
 #!/bin/bash
-# ship installer — symlinks repo skill + agents into ~/.agents and ~/.claude.
-# Idempotent. Safe to re-run.
+# ship v3 installer: symlinks the skill, the agent and the Stop hook into ~/.agents and ~/.claude,
+# removes v1/v2 agent symlinks, and seeds the implementer's memory. Idempotent. Safe to re-run.
 
 set -e
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
-echo "Installing ship from: $REPO"
+echo "Installing ship v3 from: $REPO"
 
-# Ensure target dirs exist
-mkdir -p "$HOME/.agents/skills"
-mkdir -p "$HOME/.claude/skills"
-mkdir -p "$HOME/.claude/agents"
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.claude/agents" \
+         "$HOME/.claude/hooks" "$HOME/.claude/agent-memory/ship-implementer"
 
-# Skill source: ~/.agents/skills/ship → repo/skills/ship
-SKILL_SRC="$HOME/.agents/skills/ship"
-if [ -L "$SKILL_SRC" ]; then
-  echo "  symlink exists: $SKILL_SRC → $(readlink "$SKILL_SRC")"
-elif [ -e "$SKILL_SRC" ]; then
-  echo "  WARN: $SKILL_SRC exists and is not a symlink. Move or remove it, then re-run."
-  exit 1
-else
-  ln -s "$REPO/skills/ship" "$SKILL_SRC"
-  echo "  created: $SKILL_SRC → $REPO/skills/ship"
-fi
-
-# Skill discovery symlink: ~/.claude/skills/ship → ../../.agents/skills/ship
-SKILL_LIVE="$HOME/.claude/skills/ship"
-if [ -L "$SKILL_LIVE" ]; then
-  echo "  symlink exists: $SKILL_LIVE → $(readlink "$SKILL_LIVE")"
-elif [ -e "$SKILL_LIVE" ]; then
-  echo "  WARN: $SKILL_LIVE exists and is not a symlink. Move or remove it, then re-run."
-  exit 1
-else
-  ln -s "../../.agents/skills/ship" "$SKILL_LIVE"
-  echo "  created: $SKILL_LIVE → ../../.agents/skills/ship"
-fi
-
-# Remove stale symlinks for v1 agents that no longer exist (ship-reviewer, ship-visual-qa).
-for stale in reviewer visual-qa; do
-  STALE_LINK="$HOME/.claude/agents/ship-$stale.md"
-  if [ -L "$STALE_LINK" ]; then
-    rm "$STALE_LINK"
-    echo "  removed v1 symlink: $STALE_LINK"
-  fi
-done
-
-# 8 agent files: ~/.claude/agents/ship-<role>.md → repo/agents/ship-<role>.md
-for role in implementer verifier code-review security performance design debugger retro; do
-  AGENT_LIVE="$HOME/.claude/agents/ship-$role.md"
-  AGENT_SRC="$REPO/agents/ship-$role.md"
-  if [ ! -f "$AGENT_SRC" ]; then
-    echo "  ERROR: $AGENT_SRC missing in repo"
-    exit 1
-  fi
-  if [ -L "$AGENT_LIVE" ]; then
-    echo "  symlink exists: $AGENT_LIVE → $(readlink "$AGENT_LIVE")"
-  elif [ -e "$AGENT_LIVE" ]; then
-    echo "  WARN: $AGENT_LIVE exists and is not a symlink. Move or remove it, then re-run."
+# link <target> <linkpath>: create, repoint, or refuse to clobber a real file.
+link() {
+  local target="$1" link="$2"
+  if [ -L "$link" ]; then
+    if [ "$(readlink "$link")" = "$target" ]; then
+      echo "  ok: $link"
+    else
+      ln -sfn "$target" "$link"
+      echo "  repointed: $link -> $target"
+    fi
+  elif [ -e "$link" ]; then
+    echo "  WARN: $link exists and is not a symlink. Move or remove it, then re-run."
     exit 1
   else
-    ln -s "$AGENT_SRC" "$AGENT_LIVE"
-    echo "  created: $AGENT_LIVE → $AGENT_SRC"
+    ln -s "$target" "$link"
+    echo "  created: $link -> $target"
+  fi
+}
+
+chmod +x "$REPO/hooks/verify-phase.sh"
+
+link "$REPO/skills/ship"                "$HOME/.agents/skills/ship"
+link "../../.agents/skills/ship"        "$HOME/.claude/skills/ship"
+link "$REPO/agents/ship-implementer.md" "$HOME/.claude/agents/ship-implementer.md"
+link "$REPO/hooks/verify-phase.sh"      "$HOME/.claude/hooks/ship-verify-phase.sh"
+
+# Retired agents (v1: reviewer, visual-qa; v2: the panel, verifier, debugger, retro).
+for stale in reviewer visual-qa verifier code-review security performance design debugger retro; do
+  l="$HOME/.claude/agents/ship-$stale.md"
+  if [ -L "$l" ]; then
+    rm "$l"
+    echo "  removed retired agent symlink: $l"
   fi
 done
 
+MEM="$HOME/.claude/agent-memory/ship-implementer/MEMORY.md"
+if [ ! -s "$MEM" ]; then
+  cp "$REPO/memory/MEMORY.seed.md" "$MEM"
+  echo "  seeded: $MEM"
+else
+  echo "  kept existing: $MEM"
+fi
+
+command -v jq >/dev/null 2>&1 || echo "  WARN: jq not found on PATH; the Stop hook needs it (brew install jq)."
+command -v gh >/dev/null 2>&1 || echo "  note: gh not found; /ship will ask you to push and open the PR by hand."
+
 echo
-echo "Install complete."
-echo
-echo "Next steps:"
-echo "  1. Start a new Claude Code session (agent definitions are session-cached)."
-echo "  2. Verify: /ship --help (or just type /ship and let the harness suggest the skill)."
-echo "  3. Optional: ensure 'gh' CLI is authenticated (gh auth status)."
-echo
-echo "Cross-run lessons are OPTIONAL. Set the location once:"
-echo "  git config --global ship.lessonsRoot <your-dir>    (or export SHIP_LESSONS_ROOT)"
-echo "Unset = /ship runs without lessons (no priors) — never an error."
+echo "Done. Restart Claude Code so it reloads the skill and agent, then run /ship from inside a git repo."
