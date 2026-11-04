@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ship v3: Stop hook for ship-implementer.
 #
-# Runs the phase's Verification command (read from the newest commit in this run that carries a
-# `Verification:` line: the phase commit, or a forward-only fix commit restating the contract) and
-# blocks the implementer from finishing while it is red.
+# Runs the current phase's Verification command (read from the newest `phase <N>:` commit or a
+# forward-only fix commit on top of it; an earlier phase's contract is never borrowed) and blocks
+# the implementer from finishing while it is red.
 # Replaces the v2 ship-verifier agent: deterministic, zero tokens, no delivery step.
 #
 # Input: hook JSON on stdin (cwd, agent_id, last_assistant_message, stop_hook_active).
@@ -65,16 +65,23 @@ block() {  # block <message...>: count the block, send the message to the agent,
   exit 2
 }
 
-# The newest commit in range whose body carries a Verification line wins, so a forward-only fix
-# commit can restate or correct the contract without touching the phase commit.
+# The contract is looked up in the current phase only: the newest `phase <N>:` commit and the
+# forward-only fix commits on top of it. The newest of those that carries a Verification line
+# wins, so a fix commit can restate or correct the contract without touching the phase commit,
+# and an earlier phase's command is never borrowed.
+phase_sha=""
+while read -r sha subject; do
+  case "$subject" in phase\ [0-9]*:*) phase_sha="$sha"; break ;; esac
+done < <(git log $range --format='%H %s' 2>/dev/null)
 cmd=""
 while read -r sha; do
   line="$(git log -1 --format=%B "$sha" | sed -n 's/^Verification: *//p' | head -1 | sed 's/^`//; s/`$//')"
   if [ -n "$line" ]; then cmd="$line"; break; fi
+  [ "$sha" = "$phase_sha" ] && break
 done < <(git log $range --format='%H' 2>/dev/null)
 
 if [ -z "$cmd" ]; then
-  block "ship: no 'Verification:' line in any commit of this run ($range). The phase commit body must carry the Behavior / Verification / State triplet." \
+  block "ship: no 'Verification:' line in the current phase (commit ${phase_sha:0:7} or the fix commits on top of it). The phase commit body must carry the Behavior / Verification / State triplet; an earlier phase's command is never reused." \
         "Recover forward-only: commit 'fix: phase <N> verifier: add contract' with the three triplet lines in the body (git commit --allow-empty is fine). Never amend a phase commit."
 fi
 
